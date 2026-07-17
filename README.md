@@ -35,6 +35,8 @@ See [docs/development.md](docs/development.md) for setup details and
 [docs/milestone-0-checklist.md](docs/milestone-0-checklist.md) for scope and
 evidence.
 
+The documentation index is available at [docs/README.md](docs/README.md).
+
 ## License
 
 WikiOne is available under the [MIT License](LICENSE). Copyleft source is not

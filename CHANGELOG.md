@@ -18,3 +18,6 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Live rendering spike with pinned English, Chinese, and Arabic Wikipedia
   revisions plus a controlled media fixture.
 - Cookie-free preview server with sandbox-oriented headers and CSP.
+- Architecture decisions, threat model, privacy notice, API-usage checklist,
+  OAuth registration worksheet, fidelity baseline, and milestone audit.
+- Container build verification on every CI branch push.

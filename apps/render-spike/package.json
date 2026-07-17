@@ -1,0 +1,24 @@
+{
+    "name": "@wikione/render-spike",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Milestone 0 live MediaWiki rendering and fidelity demonstrator",
+    "license": "MIT",
+    "type": "module",
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "render": "tsx src/cli.ts",
+        "serve": "tsx src/server.ts",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "validate:live": "tsx src/validate-live.ts"
+    },
+    "dependencies": {
+        "@wikione/mediawiki": "workspace:*",
+        "@wikione/preview-document": "workspace:*",
+        "fastify": "^5.4.0",
+        "zod": "^4.0.10"
+    },
+    "devDependencies": {
+        "tsx": "^4.20.3"
+    }
+}

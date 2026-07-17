@@ -1,0 +1,14 @@
+.git
+.github
+.agents
+.codex
+.idea
+.vscode
+AGENTS.md
+artifacts
+coverage
+dist
+node_modules
+*.log
+.env*
+

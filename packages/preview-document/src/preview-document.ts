@@ -30,6 +30,9 @@ const baseStyleModules = [
     'skins.vector.styles',
 ] as const;
 
+const excludedUserModules = new Set(['user', 'user.options']);
+const excludedUserStyleModules = new Set(['user.styles']);
+
 /**
  * Constructs the document shown only on the dedicated preview origin. Parser
  * HTML is intentionally preserved for fidelity and must never be inserted into
@@ -52,16 +55,28 @@ export function createPreviewDocument(input: PreviewDocumentInput): string {
     ];
     const styleModules = uniqueSorted([
         ...baseStyleModules,
-        ...input.parsed.moduleStyles,
+        ...input.parsed.moduleStyles.filter(
+            (module) => !excludedUserStyleModules.has(module),
+        ),
     ]);
     const styleLinks = chunkModules(styleModules)
         .map(
             (modules) =>
-                `<link rel="stylesheet" href="${escapeAttribute(resourceLoaderUrl(baseUrl, modules, 'styles', skin))}">`,
+                `<link rel="stylesheet" href="${escapeAttribute(resourceLoaderUrl(baseUrl, modules, 'styles', skin, languageCode))}">`,
         )
         .join('\n        ');
-    const startupUrl = resourceLoaderUrl(baseUrl, ['startup'], 'scripts', skin);
-    const pageModules = uniqueSorted(input.parsed.modules);
+    const startupUrl = resourceLoaderUrl(
+        baseUrl,
+        ['startup'],
+        'scripts',
+        skin,
+        languageCode,
+    );
+    const pageModules = uniqueSorted(
+        input.parsed.modules.filter(
+            (module) => !excludedUserModules.has(module),
+        ),
+    );
     const javascriptConfig = safeJson(input.parsed.javascriptConfig);
     const moduleJson = safeJson(pageModules);
     const categoryHtml = input.parsed.categoriesHtml
@@ -267,9 +282,10 @@ function resourceLoaderUrl(
     modules: readonly string[],
     only: 'scripts' | 'styles',
     skin: string,
+    languageCode: string,
 ): string {
     const url = new URL('/w/load.php', baseUrl);
-    url.searchParams.set('lang', 'en');
+    url.searchParams.set('lang', languageCode);
     url.searchParams.set('modules', modules.join('|'));
     url.searchParams.set('only', only);
     url.searchParams.set('skin', skin);

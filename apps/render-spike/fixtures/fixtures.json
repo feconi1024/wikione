@@ -1,0 +1,60 @@
+{
+    "fixtures": [
+        {
+            "id": "en-wikipedia",
+            "label": "English Wikipedia pinned article",
+            "wikiBaseUrl": "https://en.wikipedia.org",
+            "apiUrl": "https://en.wikipedia.org/w/api.php",
+            "title": "Wikipedia",
+            "revisionId": 1364493197,
+            "expected": {
+                "direction": "ltr",
+                "minimumSourceCharacters": 1000,
+                "minimumImages": 1
+            }
+        },
+        {
+            "id": "zh-wikipedia",
+            "label": "Chinese Wikipedia pinned article",
+            "wikiBaseUrl": "https://zh.wikipedia.org",
+            "apiUrl": "https://zh.wikipedia.org/w/api.php",
+            "title": "维基百科",
+            "revisionId": 93497071,
+            "expected": {
+                "direction": "ltr",
+                "minimumSourceCharacters": 1000
+            }
+        },
+        {
+            "id": "ar-wikipedia",
+            "label": "Arabic Wikipedia pinned article",
+            "wikiBaseUrl": "https://ar.wikipedia.org",
+            "apiUrl": "https://ar.wikipedia.org/w/api.php",
+            "title": "ويكيبيديا",
+            "revisionId": 75059417,
+            "expected": {
+                "direction": "rtl",
+                "minimumSourceCharacters": 1000
+            }
+        },
+        {
+            "id": "media-suite",
+            "label": "Controlled image, table, math, reference, audio, and video suite",
+            "wikiBaseUrl": "https://en.wikipedia.org",
+            "apiUrl": "https://en.wikipedia.org/w/api.php",
+            "title": "Project:Sandbox",
+            "sourceFile": "media-suite.mediawiki",
+            "expected": {
+                "direction": "ltr",
+                "minimumSourceCharacters": 200,
+                "minimumImages": 1,
+                "minimumFigures": 1,
+                "minimumTables": 1,
+                "minimumMathElements": 1,
+                "minimumReferenceLists": 1,
+                "minimumAudioElements": 1,
+                "minimumVideoElements": 1
+            }
+        }
+    ]
+}

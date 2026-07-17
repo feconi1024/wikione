@@ -23,8 +23,8 @@ const parsed: ParsedPreview = {
     subtitle: '',
     indicators: [],
     categoriesHtml: '',
-    modules: ['ext.cite.ux-enhancements'],
-    moduleStyles: ['ext.cite.styles'],
+    modules: ['ext.cite.ux-enhancements', 'user', 'user.options'],
+    moduleStyles: ['ext.cite.styles', 'user.styles'],
     javascriptConfig: { wgPageName: '</script><script>bad()</script>' },
     warnings: [],
 };
@@ -42,6 +42,9 @@ describe('preview document', () => {
         expect(html).toContain('<html lang="ar" dir="rtl">');
         expect(html).toContain('ext.cite.styles');
         expect(html).toContain('ext.cite.ux-enhancements');
+        expect(html).not.toContain('user.options');
+        expect(html).not.toContain('user.styles');
+        expect(html).toContain('lang=ar');
         expect(html).toContain('\\u003c/script>');
         expect(html).not.toContain('</script><script>bad()');
     });

@@ -1,0 +1,29 @@
+== Responsive image and figure ==
+[[File:Example.jpg|thumb|center|A Commons image rendered with Wikipedia's thumbnail markup.]]
+
+== Gallery ==
+<gallery mode="packed" heights="120">
+File:Example.jpg|Packed gallery example
+File:Example.svg|Vector gallery example
+</gallery>
+
+== Table ==
+{| class="wikitable sortable"
+! Medium !! Expected behavior
+|-
+| Image || Responsive thumbnail and high-density source set
+|-
+| Table || Wikipedia table styling and sorting module
+|}
+
+== Mathematics and references ==
+Einstein's mass-energy relation is <math>E = mc^2</math>.<ref>Milestone 0 controlled citation.</ref>
+
+<references />
+
+== Audio ==
+[[File:Example.ogg|center]]
+
+== Video ==
+[[File:Example.webm|thumb|center|A small Commons video fixture.]]
+

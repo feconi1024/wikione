@@ -1,0 +1,37 @@
+{
+    "name": "wikione",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Overleaf-style online editor for MediaWiki wikitext",
+    "license": "MIT",
+    "type": "module",
+    "engines": {
+        "node": ">=24.0.0",
+        "pnpm": ">=11.0.0"
+    },
+    "packageManager": "pnpm@11.9.0",
+    "scripts": {
+        "build": "turbo run build",
+        "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "lint": "eslint .",
+        "spike:render": "pnpm --filter @wikione/render-spike render",
+        "spike:serve": "pnpm --filter @wikione/render-spike serve",
+        "test": "vitest run",
+        "test:live": "pnpm --filter @wikione/render-spike validate:live",
+        "typecheck": "turbo run typecheck"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.31.0",
+        "@types/node": "^24.0.15",
+        "eslint": "^9.31.0",
+        "eslint-config-prettier": "^10.1.8",
+        "globals": "^16.3.0",
+        "prettier": "^3.6.2",
+        "turbo": "^2.5.5",
+        "typescript": "^5.8.3",
+        "typescript-eslint": "^8.38.0",
+        "vitest": "^3.2.4"
+    }
+}

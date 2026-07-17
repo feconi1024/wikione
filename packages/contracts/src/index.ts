@@ -52,6 +52,30 @@ export const previewResultSchema = z.object({
     generatedAt: z.iso.datetime(),
 });
 
+export const authenticationStartResultSchema = z.object({
+    authorizationUrl: z.url().startsWith('https://'),
+    expiresAt: z.iso.datetime(),
+});
+
+const anonymousSessionStatusSchema = z.object({
+    authenticated: z.literal(false),
+});
+
+const authenticatedSessionStatusSchema = z.object({
+    authenticated: z.literal(true),
+    identity: z.object({
+        wikiId: wikiIdSchema,
+        username: z.string().min(1).max(255),
+        userId: z.int().positive().optional(),
+    }),
+    expiresAt: z.iso.datetime(),
+});
+
+export const sessionStatusSchema = z.discriminatedUnion('authenticated', [
+    anonymousSessionStatusSchema,
+    authenticatedSessionStatusSchema,
+]);
+
 export const watchlistBehaviorSchema = z.enum([
     'preferences',
     'watch',
@@ -111,5 +135,9 @@ export type PageSource = z.infer<typeof pageSourceSchema>;
 export type PreviewRequest = z.infer<typeof previewRequestSchema>;
 export type PreviewWarning = z.infer<typeof previewWarningSchema>;
 export type PreviewResult = z.infer<typeof previewResultSchema>;
+export type AuthenticationStartResult = z.infer<
+    typeof authenticationStartResultSchema
+>;
+export type SessionStatus = z.infer<typeof sessionStatusSchema>;
 export type PublishRequest = z.infer<typeof publishRequestSchema>;
 export type PublishResult = z.infer<typeof publishResultSchema>;

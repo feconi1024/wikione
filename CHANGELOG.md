@@ -21,3 +21,5 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Architecture decisions, threat model, privacy notice, API-usage checklist,
   OAuth registration worksheet, fidelity baseline, and milestone audit.
 - Container build verification on every CI branch push.
+- Clean-checkout workspace resolution and Node 24-native actions for Linux CI.
+- Authentication handoff and anonymous/authenticated session contracts.

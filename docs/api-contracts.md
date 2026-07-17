@@ -23,6 +23,10 @@ types are inferred from those schemas rather than maintained separately.
   client revision.
 - `PreviewResult`: matching client revision, short-lived render URL, normalized
   warnings, and generation time.
+- `AuthenticationStartResult`: short-lived HTTPS authorization handoff URL. It
+  never contains access tokens or raw OAuth state.
+- `SessionStatus`: discriminated anonymous/authenticated state; authenticated
+  responses include only the selected wiki identity and session expiry.
 - `PublishRequest`: source, base revision/timestamps, non-empty summary, minor
   flag, and explicit watchlist behavior.
 - `PublishResult`: one of `published`, `conflict`,
@@ -40,5 +44,5 @@ Milestone 0 exposes only:
 - `GET /openapi.json`
 
 Page, preview, session, authentication, and publish endpoints are reserved for
-their implementation milestones. They must use the existing contracts instead
-of creating parallel wire formats.
+their implementation milestones. They must use the shared contract package and
+its versioning rules instead of creating parallel wire formats.

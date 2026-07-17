@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    authenticationStartResultSchema,
     previewRequestSchema,
     publishRequestSchema,
     publishResultSchema,
+    sessionStatusSchema,
     wikiDescriptorSchema,
 } from './index.js';
 
@@ -45,6 +47,41 @@ describe('shared contracts', () => {
         });
 
         expect(result.success).toBe(false);
+    });
+
+    it('models OAuth handoff without exposing state or tokens', () => {
+        expect(
+            authenticationStartResultSchema.safeParse({
+                authorizationUrl:
+                    'https://meta.wikimedia.org/w/rest.php/oauth2/authorize',
+                expiresAt: '2026-07-17T00:10:00.000Z',
+            }).success,
+        ).toBe(true);
+        expect(
+            authenticationStartResultSchema.safeParse({
+                authorizationUrl: 'http://example.test/authorize',
+                expiresAt: '2026-07-17T00:10:00.000Z',
+            }).success,
+        ).toBe(false);
+    });
+
+    it('parses anonymous and authenticated session states', () => {
+        const states = [
+            { authenticated: false },
+            {
+                authenticated: true,
+                identity: {
+                    wikiId: 'en-wikipedia',
+                    username: 'Example',
+                    userId: 42,
+                },
+                expiresAt: '2026-07-17T00:10:00.000Z',
+            },
+        ];
+
+        for (const state of states) {
+            expect(sessionStatusSchema.safeParse(state).success).toBe(true);
+        }
     });
 
     it('parses every publish-result branch', () => {

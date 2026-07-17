@@ -1,6 +1,27 @@
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vitest/config';
 
+const repositoryRoot = fileURLToPath(new URL('.', import.meta.url));
+
 export default defineConfig({
+    resolve: {
+        alias: {
+            '@wikione/contracts': resolve(
+                repositoryRoot,
+                'packages/contracts/src/index.ts',
+            ),
+            '@wikione/mediawiki': resolve(
+                repositoryRoot,
+                'packages/mediawiki/src/index.ts',
+            ),
+            '@wikione/preview-document': resolve(
+                repositoryRoot,
+                'packages/preview-document/src/index.ts',
+            ),
+        },
+    },
     test: {
         coverage: {
             provider: 'v8',

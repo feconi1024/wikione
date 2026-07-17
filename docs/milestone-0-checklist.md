@@ -9,7 +9,7 @@ not performed.
 | Greenfield monorepo and strict engineering baseline                    | Root pnpm/Turborepo/TypeScript/ESLint/Prettier config, CI, `.editorconfig`, lockfile  | Complete                          |
 | Required repository files                                              | `README.md`, `.gitignore`, MIT `LICENSE`, `CHANGELOG.md`, `docs/`                     | Complete                          |
 | Container development foundation                                       | `Dockerfile`, `compose.yaml`, `.dockerignore`, CI image build                         | Complete                          |
-| Shared API contracts                                                   | `@wikione/contracts` Zod schemas and tests                                            | Complete                          |
+| Shared API contracts                                                   | `@wikione/contracts` page, preview, auth/session, and publishing Zod schemas/tests    | Complete                          |
 | Minimal API and OpenAPI                                                | `apps/api`, `/healthz`, `/v1/meta/contracts`, `/openapi.json` tests                   | Complete                          |
 | Target-parser client                                                   | `@wikione/mediawiki`, identified POST requests, `maxlag`, timeout, structured errors  | Complete                          |
 | Isolated document assembly                                             | `@wikione/preview-document`, safe head metadata extraction, module filtering, CSP     | Complete                          |

@@ -47,8 +47,10 @@ RTL.
   site gadgets remain isolated to preserve standard published behavior.
 - Raw `headhtml` is not trusted or reproduced. This can omit non-content chrome,
   which is outside the MVP fidelity promise.
-- Pixel-diff baselines and browser interaction checks are Milestone 3 work. The
-  Milestone 0 baseline proves parser/module/media structure and runnable output.
+- Pixel-diff comparison and real-target browser interaction baselines remain
+  later work. Milestone 1 browser tests verify editor/preview orchestration with
+  intercepted services; this live baseline proves target parser/module/media
+  structure and runnable output.
 
 ## Reproduction
 

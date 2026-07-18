@@ -1,93 +1,95 @@
 # Threat model
 
-## Security objectives
+## Milestone 1 security objectives
 
 1. Target-generated HTML and JavaScript cannot read or modify the editor origin.
-2. OAuth tokens and wiki credentials never reach preview documents or browser
-   JavaScript.
+2. Parser content never enters the editor DOM or API JSON response.
 3. User-controlled wiki identifiers cannot turn backend requests into SSRF.
-4. Draft source, parser output, edit summaries, and tokens do not enter logs or
-   durable server storage.
-5. Publishing is revision-bound, explicitly confirmed, and protected from CSRF.
+4. Draft source and parser output do not enter application logs or durable
+   source storage.
+5. Preview URLs are hard to guess, short-lived, and useless after expiry.
+6. No partially implemented OAuth, session, or wiki-write surface exists before
+   registration.
 
 ## Trust boundaries
 
-- The editor UI is trusted application code but displays untrusted page titles,
-  parser warnings, and API errors as text.
-- The BFF is trusted with OAuth tokens and is the only component allowed to make
-  authenticated write calls.
-- Wikipedia APIs and ResourceLoader are external services. Their parser HTML and
-  JavaScript are treated as active, potentially hostile content even when
-  operated by Wikimedia.
-- The preview origin is intentionally disposable and untrusted by the editor.
-- Wikitext is user-controlled and may expand templates maintained by unrelated
-  wiki users.
+- The Vue editor is trusted application code. Page titles, parser warnings, and
+  safe API messages are rendered as text.
+- The BFF receives draft source transiently, may call only fixed wiki registry
+  URLs, and creates anonymous parser requests. It holds no credentials.
+- Wikipedia APIs and ResourceLoader are external. Parser HTML, templates,
+  gadgets, and scripts are active and potentially hostile even when served by
+  Wikimedia.
+- The preview application/origin is disposable and untrusted by the editor. It
+  reads only opaque render bundles and cannot load source, authenticate, or
+  publish.
+- Redis contains rendered draft output for a short TTL and is not a source or
+  session database.
 
-## Threats and controls
+## Implemented controls
 
-### Parser HTML or ResourceLoader code escapes into the editor
+### Parser HTML and ResourceLoader isolation
 
-- Never use `innerHTML` with parser output on the editor origin.
-- Serve the complete document on a separate preview origin.
-- Embed it using an iframe sandbox that permits only scripts and same-origin
-  access within the isolated preview site.
-- Do not grant top navigation, downloads, forms, camera, microphone, or
-  geolocation.
-- Parent message handlers must accept no privileged commands from preview code.
+- Parser HTML is assembled into a complete document, never passed to editor
+  `innerHTML`, and served from the separate preview origin.
+- The iframe sandbox allows scripts and same-origin access only within that
+  isolated origin; it does not grant forms, top navigation, downloads, camera,
+  microphone, geolocation, or privileged parent messages.
+- Preview responses set `no-store`, CSP, exact `frame-ancestors`, permissions,
+  no-referrer, cross-origin resource policy, and `nosniff` headers.
+- ResourceLoader's required inline/eval CSP allowances exist only on the
+  preview origin. The editor CSP does not grant them.
 
-### Malicious `headhtml`
+### Head and module handling
 
-- Parse it structurally and read only `html[lang]`, `html[dir]`, and validated
-  body class tokens.
-- Reconstruct known head elements; never copy raw scripts, event handlers,
-  redirects, preload links, or forms from `headhtml`.
+- `headhtml` is parsed structurally. Only language, direction, and validated
+  body-class tokens are read; raw head scripts/links/redirects are not copied.
+- Known article style modules plus parser-declared `modulestyles` are loaded.
+- Personalized `user`, `user.options`, and `user.styles` modules are filtered.
 
-### Personalized modules leak data or behavior
+### SSRF, redirect, and request limits
 
-- Filter `user`, `user.options`, and `user.styles` even if `action=parse`
-  declares them.
-- The spike makes anonymous parse calls and sends no wiki cookies.
-- Default site gadgets returned for anonymous published pages may run only in
-  the isolated preview origin.
+- The browser submits `en-wikipedia`, not a URL. The server resolves it from a
+  fixed registry containing clean HTTPS base/API URLs.
+- The MediaWiki client rejects credentials, queries, fragments, non-HTTPS URLs,
+  and redirects, and applies a 15-second timeout and `maxlag=5`.
+- API bodies are capped at 600,000 bytes; preview source is capped at 500,000
+  characters and page-source responses at 2,000,000.
+- Preview creation is rate-limited to 30 requests/minute per instance/IP and
+  the browser coalesces changes with a trailing debounce.
 
-### Cross-site request forgery or token theft
+### Source and preview disclosure
 
-- Future OAuth tokens remain encrypted in the BFF and are referenced by a
-  random host-only `HttpOnly`, `Secure`, `SameSite=Lax` session cookie.
-- OAuth uses exact callbacks and state. Publishing additionally checks Origin
-  and an application CSRF header.
-- Preview and asset proxy routes never receive Authorization headers or cookies.
+- Request logging is disabled for BFF/preview services; safe error messages do
+  not include upstream bodies or user input.
+- Redis bundles contain rendered HTML but not raw wikitext, use random 192-bit
+  IDs, expire after two minutes, and are served only by opaque GET route.
+- Malformed, missing, and expired preview IDs receive the same safe 404 shape.
+- The editor rejects stale compilation results and retains the last successful
+  document when a later request fails.
+- Browser drafts are source-only and can be explicitly discarded.
 
-### SSRF and unsafe redirects
+### Authentication and writes
 
-- Production wiki hosts come from a signed/configured Wikimedia registry.
-- URLs must be clean HTTPS endpoints without embedded credentials, query, or
-  fragment.
-- Reject redirects, private/reserved IP ranges, unexpected ports, and response
-  bodies over configured limits.
-- Preview asset proxies permit only explicit read-only ResourceLoader/API/REST
-  routes and strip credentials and `Set-Cookie`.
+- Sign-in is disabled, `/v1/auth/availability` always reports registration
+  pending, and neither service exposes login, callback, token, session, logout,
+  publish, or edit endpoints.
+- No OAuth environment variables, cookies, Authorization handling, CSRF state,
+  or write grants exist in the runtime. Future auth cannot be inferred from
+  reserved TypeScript contracts.
 
-### Source disclosure
+## Remaining production work
 
-- Do not log titles, source, parser output, summaries, or request bodies.
-- Render bundles receive random IDs, `no-store`, and short TTLs.
-- Generated spike output is ignored; developers must delete it before sharing a
-  workspace archive.
-- The UI must disclose that draft wikitext is sent to the selected wiki to
-  compile it.
-
-### Publishing races and unintended writes
-
-- Send `baserevid`, base/start timestamps, and `createonly` or `nocreate`.
-- Require a non-empty summary and show a diff before sending.
-- On conflict, fetch latest source and require user confirmation after merge.
-- Never run write tests against arbitrary public articles.
-
-## Current limitations
-
-ResourceLoader requires inline/eval-compatible execution. Those CSP allowances
-exist only on the isolated preview origin and are unacceptable on the editor or
-BFF origins. The Milestone 0 server is a demonstrator; production must add a
-separate hostname, ephemeral render storage, host allowlists, response limits,
-and a read-only resource proxy before public deployment.
+- Use distinct HTTPS hostnames and exact production CORS/frame values; never
+  collapse editor and preview onto one origin.
+- Add a read-only, allowlisted resource proxy if deployment policy requires
+  hiding user network metadata or constraining third-party resources.
+- Add a shared adaptive upstream concurrency queue and 429/503/maxlag backoff
+  for multi-instance public traffic; the current rate limiter is per instance.
+- Pin production images, isolate Redis on a private network, apply resource
+  limits, scan images, and configure metadata-only infrastructure log retention.
+- Perform CSP/browser tests against the final deployment host and target
+  ResourceLoader behavior.
+- Before OAuth or publishing, conduct a new threat review covering encrypted
+  tokens, host-only cookies, callback state, Origin/CSRF checks, revision-bound
+  writes, diffs, summaries, conflicts, and revocation.

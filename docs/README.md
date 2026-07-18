@@ -2,25 +2,30 @@
 
 This directory contains the product and engineering record for WikiOne.
 
-- [Architecture](architecture.md) describes the current Milestone 0 system and
-  the boundaries reserved for later milestones.
-- [API contracts](api-contracts.md) documents the stable public shapes and
-  error model.
-- [Development](development.md) covers local setup, checks, live validation,
+- [Architecture](architecture.md) describes the implemented Milestone 1
+  topology and trust boundaries.
+- [Wikitext editor](wikitext-editor.md) records the independent language layer,
+  supported editing behavior, compatibility limits, and licensing boundary.
+- [API contracts](api-contracts.md) documents implemented routes, shared wire
+  shapes, limits, and the OAuth placeholder.
+- [Development](development.md) covers local services, tests, live validation,
   containers, and repository conventions.
-- [Threat model](threat-model.md) records trust boundaries and required
-  mitigations.
-- [Privacy notice](privacy.md) documents data handling for the spike and the
-  planned public service.
-- [Wikimedia API policy](api-usage-policy.md) is the operator checklist for
-  responsible upstream access.
-- [Fidelity baseline](fidelity-baseline.md) records pinned live-render evidence.
-- [OAuth registration](oauth-registration.md) contains the external setup that
-  cannot be completed from the repository.
-- [Milestone 0 checklist](milestone-0-checklist.md) maps every planned
-  deliverable to evidence.
+- [Threat model](threat-model.md) records implemented controls and remaining
+  production risks.
+- [Privacy notice](privacy.md) inventories browser drafts, preview traffic,
+  ephemeral render data, and current retention.
+- [Wikimedia API policy](api-usage-policy.md) is the upstream-traffic operator
+  checklist.
+- [Fidelity baseline](fidelity-baseline.md) records pinned target-rendering
+  evidence.
+- [OAuth registration](oauth-registration.md) records the future external setup;
+  Milestone 1 contains no OAuth credentials or functional login path.
+- [Milestone 1 checklist](milestone-1-checklist.md) maps every deliverable to
+  current evidence and verification.
+- [Milestone 0 checklist](milestone-0-checklist.md) preserves the preceding
+  foundation audit.
 - [Architecture decisions](decisions/) explain consequential technical choices.
 
 Documentation is normative when it describes security boundaries or API
-contracts. If code and documentation disagree, open an issue and treat the more
-restrictive security behavior as authoritative until the discrepancy is fixed.
+contracts. If code and documentation disagree, treat the more restrictive
+security behavior as authoritative until the discrepancy is fixed.

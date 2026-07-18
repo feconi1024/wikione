@@ -1,41 +1,43 @@
 # Wikimedia API usage checklist
 
-WikiOne is an operator of API traffic and must follow Wikimedia's API Usage and
+WikiOne operates API traffic and must follow the current target wiki's API and
 User-Agent policies.
 
-## Implemented in Milestone 0
+## Implemented through Milestone 1
 
-- [x] HTTPS-only Action API endpoints.
+- [x] Fixed HTTPS-only Action API endpoint for English Wikipedia.
 - [x] Descriptive `User-Agent` and `Api-User-Agent` identifying WikiOne and its
       public repository.
-- [x] `maxlag=5` on every request.
-- [x] Fifteen-second request timeout.
-- [x] Sequential live fixture execution; no burst concurrency.
-- [x] Explicit live test command excluded from ordinary unit tests and CI.
-- [x] Structured handling of API and HTTP errors without logging bodies.
-- [x] Pinned revisions prevent repeated discovery calls and content drift.
-- [x] Generated results are cached locally for developer inspection rather than
-      repeatedly fetched automatically.
+- [x] `maxlag=5`, 15-second timeout, POST requests, and redirect rejection.
+- [x] Structured API/HTTP errors without logging bodies or submitted source.
+- [x] 650 ms trailing browser debounce, superseded-request abort, and stale
+      client-revision rejection.
+- [x] Preview source/body size limits and a 30 requests/minute per-instance/IP
+      API ceiling.
+- [x] Pinned live fixtures run sequentially only through an explicit command,
+      outside ordinary tests and CI.
+- [x] Target results are inspected through ephemeral previews instead of
+      repeatedly fetched background jobs.
 
 ## Required before public beta
 
-- [ ] Replace the repository-only contact with a monitored operator address.
-- [ ] Coalesce preview changes and permit one in-flight parse per document.
-- [ ] Enforce a trailing debounce and sustained request ceiling.
-- [ ] Honor `Retry-After`, 429, `maxlag`, and 503 with exponential backoff and
-      jitter.
-- [ ] Add global/per-session rate limits and an adaptive upstream concurrency
-      queue.
-- [ ] Cache identical content hashes briefly without retaining wikitext in logs.
-- [ ] Publish dashboards for upstream latency, errors, throttling, and cache
-      behavior.
-- [ ] Recheck Wikimedia policies immediately before beta and record the review
-      date.
+- [ ] Replace the repository-only/local User-Agent contact with a monitored
+      operator address.
+- [ ] Honor `Retry-After`, 429, `maxlag`, and 503 with bounded exponential
+      backoff and jitter.
+- [ ] Add a shared upstream concurrency queue and distributed limits for
+      multi-instance deployments.
+- [ ] Consider a short-lived identical-content cache without source-aware keys
+      or logs.
+- [ ] Publish metadata-only dashboards for latency, errors, throttling, and
+      request volume.
+- [ ] Recheck target policies immediately before beta and record the review
+      date/operator.
 
 ## Operator rules
 
 - Never distribute load across identities or addresses to evade throttling.
-- Never claim Wikimedia guarantees service availability.
-- Do not run the live fixture command in tight loops or on every commit.
-- Stop or reduce traffic when Wikimedia requests it.
+- Never claim Wikimedia guarantees availability or preview completeness.
+- Do not run live fixtures in tight loops or on every commit.
+- Stop or reduce traffic when a target operator requests it.
 - Comply with content licenses when retaining or redistributing page output.

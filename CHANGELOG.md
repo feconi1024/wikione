@@ -52,3 +52,7 @@ All notable changes to WikiOne are documented in this file. The format follows
   targets, health-gated Compose wiring, and non-persistent Redis preview data.
 - Editor-origin CSP/security headers and complete environment examples without
   premature OAuth secrets or configuration.
+- Milestone 1 architecture, API, editor-compatibility, development, completion,
+  and decision documentation aligned to the implemented anonymous MVP.
+- Current-state privacy inventory, threat model, API-usage checklist, OAuth
+  placeholder status, and clarified fidelity-test boundary.

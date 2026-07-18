@@ -1,55 +1,66 @@
 # Privacy notice and data inventory
 
-This document is both the Milestone 0 data inventory and the draft basis for the
-public product privacy notice. It is not legal advice.
+This document describes implemented Milestone 1 behavior and is a draft basis
+for a future public-service notice. It is not legal advice.
 
-## Milestone 0 behavior
+## Data handled now
 
-The rendering spike sends these values to the selected Wikimedia Action API:
+### Browser drafts
 
-- a pinned revision ID or controlled fixture wikitext;
-- page title/context needed for correct template and magic-word expansion;
-- requested skin, parser properties, and a descriptive WikiOne User-Agent.
+The editor stores a versioned local draft in IndexedDB after edits. A record
+contains wiki ID, title, wikitext, update time, and optional base revision. It
+does not contain compiled HTML, account data, cookies, or credentials. Drafts
+remain in that browser profile until the user selects **Discard saved copy**,
+clears site data, or browser storage is removed.
 
-Wikimedia receives the requester's network metadata according to its own privacy
-policy and infrastructure. WikiOne does not authenticate these requests.
+### Page loading and compilation
 
-The spike writes compiled HTML and a manifest to local
-`artifacts/render-spike/`. The manifest contains wiki/API URLs, titles, pinned
-revision IDs/timestamps, source character counts, module names, parser warnings,
-and structural media counts. It does not contain source wikitext or credentials.
-The directory is ignored and may be deleted at any time.
+When the user loads a page, the WikiOne BFF sends the title anonymously to the
+fixed English Wikipedia Action API and returns its current wikitext/revision.
+When source changes, the BFF sends the title and draft wikitext to English
+Wikipedia for anonymous `action=parse` compilation. The editor discloses this
+in its persistent privacy bar.
 
-## Planned MVP behavior
+The BFF does not durably store raw source. It creates a rendered HTML document
+and stores that document, the wiki base origin, and creation/expiry times in
+Redis for two minutes. The browser receives only a random render URL. Supplied
+Compose configuration disables Redis snapshots and append-only persistence.
 
-- Drafts remain in the user's browser through IndexedDB unless the user clears
-  them.
-- Draft wikitext is sent to the selected wiki for compilation; this is shown in
-  the UI before first use.
-- The BFF stores only encrypted OAuth access/refresh tokens and opaque session
-  metadata in Redis for the login lifetime.
-- Preview bundles are ephemeral, unlisted, `no-store`, and deleted after a short
-  TTL.
-- No advertising, cross-site tracking, or product analytics are enabled by
-  default.
-- Operational logs exclude page titles, source, parser HTML, edit summaries,
-  usernames, email addresses, and all credentials.
+The preview iframe loads Wikipedia/Wikimedia styles, scripts, images, audio,
+video, and other resources directly. Those operators can receive normal request
+metadata such as IP address, time, URL, and browser headers under their own
+policies. In a hosted deployment, the parse request originates from WikiOne's
+server while iframe resource requests originate from the user's browser.
 
-## User controls
+### Logs and accounts
 
-Users can discard local drafts, log out to remove the server session, and revoke
-the connected application from Wikimedia's OAuth grants page. Publishing creates
-the normal public wiki revision and is governed by that wiki's history, license,
-and deletion policies.
+Source-bearing Fastify request logging is disabled. Application errors expose
+only request IDs and normalized codes; titles, wikitext, parser HTML, summaries,
+cookies, and tokens are excluded by design. Infrastructure access logs must use
+the same restriction in a hosted deployment.
 
-## Retention defaults
+Milestone 1 has no product analytics, advertising, tracking, user accounts,
+OAuth tokens, server sessions, email addresses, usernames, or publishing data.
+The disabled sign-in control and auth-availability response are placeholders
+only.
 
-- Browser draft: until discard, successful matching publication, or browser
-  storage removal.
-- OAuth/session record: at most 30 days and never beyond refresh-token validity.
-- Preview bundle: two minutes.
-- Security/availability logs: 14 days, metadata only.
+## User controls and retention
 
-Before public OAuth approval, replace placeholder contact/domain values, publish
-the final notice at a stable HTTPS URL, and confirm retention with the deployment
-operator.
+| Data                            | Current retention/control                                             |
+| ------------------------------- | --------------------------------------------------------------------- |
+| Browser source draft            | Until explicit discard or browser/site-data removal                   |
+| Redis rendered preview document | 120 seconds by default; at most 10 minutes by configuration           |
+| Raw source in the BFF           | Request processing only; not written to application storage           |
+| Generated render-spike files    | Ignored local artifacts; developer deletes them when no longer needed |
+| Account/session/token data      | Not collected or created in Milestone 1                               |
+
+Browser drafts are not synchronized and cannot be recovered by a WikiOne
+operator. Discarding a saved copy does not erase the text still open in the
+current editor tab.
+
+## Work required before public authentication
+
+After OAuth registration, this notice must be reviewed for token/session
+storage, logout, revocation, operator log retention, incident response, and the
+wiki revision created by publishing. Before registration approval, no OAuth
+secret or functional auth/write path should be added.

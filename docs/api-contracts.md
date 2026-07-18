@@ -1,48 +1,58 @@
 # API contracts
 
-The canonical runtime schemas live in `packages/contracts/src/index.ts` and use
-Zod so browser and backend code reject malformed data consistently. TypeScript
-types are inferred from those schemas rather than maintained separately.
+Canonical runtime schemas live in `packages/contracts/src/index.ts`. Zod parses
+untrusted data at browser/backend boundaries, and TypeScript types are inferred
+from those schemas.
 
-## Versioning
+## Versioning and errors
 
-- Public routes use an explicit `/v1` prefix.
-- Additive optional fields are allowed within v1.
-- Removing fields, changing meanings, or tightening accepted inputs requires a
-  new route version.
-- Every error response will use a discriminated status/code rather than expose a
-  raw MediaWiki response.
+- Product routes use the `/v1` prefix.
+- Additive optional fields are allowed within v1. Removing fields, changing
+  meanings, or tightening accepted inputs requires a new route version.
+- Safe errors contain `code`, a bounded user-facing `message`, and optional
+  `requestId`; raw MediaWiki responses and submitted source are never returned.
+- Preview `clientRevision` is mandatory. The browser ignores any result older
+  than its newest requested document state.
 
-## Core shapes
+## Implemented routes
 
-- `WikiDescriptor`: stable wiki ID, display name, language/direction, and
-  validated HTTPS base/API URLs.
-- `PageSource`: title, existence, wikitext, optional base revision, and fetch
-  time.
-- `PreviewRequest`: wiki, title, source, `wikitext` content model, and monotonic
-  client revision.
-- `PreviewResult`: matching client revision, short-lived render URL, normalized
-  warnings, and generation time.
-- `AuthenticationStartResult`: short-lived HTTPS authorization handoff URL. It
-  never contains access tokens or raw OAuth state.
-- `SessionStatus`: discriminated anonymous/authenticated state; authenticated
-  responses include only the selected wiki identity and session expiry.
-- `PublishRequest`: source, base revision/timestamps, non-empty summary, minor
-  flag, and explicit watchlist behavior.
-- `PublishResult`: one of `published`, `conflict`,
-  `authentication-required`, or `rejected`.
+| Method | Route                   | Purpose                                                                 |
+| ------ | ----------------------- | ----------------------------------------------------------------------- |
+| GET    | `/healthz`              | Liveness response                                                       |
+| GET    | `/v1/meta/contracts`    | API/package version metadata                                            |
+| GET    | `/v1/wikis`             | Fixed enabled-wiki registry; currently English Wikipedia only           |
+| POST   | `/v1/pages/source`      | Anonymous latest wikitext and base revision, or an empty new-page shape |
+| POST   | `/v1/previews`          | Anonymous target compilation and short-lived opaque render URL          |
+| GET    | `/v1/auth/availability` | Constant OAuth-registration-pending placeholder                         |
+| GET    | `/openapi.json`         | Generated OpenAPI 3.1 document                                          |
 
-The monotonic preview revision is mandatory: the browser must ignore any result
-whose revision does not match its newest requested document state.
+There is no authentication-start, callback, session, token, publish, or wiki
+write route in Milestone 1.
 
-## Current endpoints
+## Core implemented shapes
 
-Milestone 0 exposes only:
+- `WikiDescriptor`: stable ID, display name, language/direction, and clean HTTPS
+  base/API URLs. Clients submit only the ID; they cannot supply upstream hosts.
+- `PageSourceRequest`: `wikiId` and a trimmed, non-empty title of at most 512
+  characters.
+- `PageSource`: normalized title, existence, wikitext, optional revision
+  ID/timestamp, and fetch time. Source is bounded to 2,000,000 characters.
+- `PreviewRequest`: wiki, title, source, literal `wikitext` model, and monotonic
+  client revision. Source is bounded to 500,000 characters.
+- `PreviewResult`: matching revision, render URL, normalized parser warnings,
+  generation time, and expiry time. It contains neither source nor HTML.
+- `AuthenticationAvailability`: always `{ available: false, reason:
+"oauth-registration-pending", ... }` in this milestone.
 
-- `GET /healthz`
-- `GET /v1/meta/contracts`
-- `GET /openapi.json`
+Preview IDs are exactly 32 base64url characters generated from 24 random bytes.
+Default bundle TTL is 120 seconds and cannot be configured above ten minutes.
+The preview route is limited to 30 requests per minute per API instance/IP; a
+public multi-instance deployment still needs shared adaptive upstream limits.
 
-Page, preview, session, authentication, and publish endpoints are reserved for
-their implementation milestones. They must use the shared contract package and
-its versioning rules instead of creating parallel wire formats.
+## Reserved contracts
+
+The contract package retains future `AuthenticationStartResult`,
+`SessionStatus`, `PublishRequest`, and `PublishResult` schemas to keep the
+product boundary explicit. They do not imply a runnable route. OAuth and
+publishing implementation must wait for registration and a separate security
+review.

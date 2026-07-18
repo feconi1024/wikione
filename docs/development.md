@@ -4,12 +4,13 @@
 
 - Node.js 24 or newer
 - pnpm 11
-- Optional: Docker with Compose for container verification and Redis
-- Network access only for dependency installation and explicit live fixture
-  validation
+- Redis 7 for the live API/preview path
+- Optional: Docker with Compose
+- Chromium installed by Playwright for browser tests
 
-Copy `.env.example` to `.env` only when local overrides are needed. `.env` is
-ignored and must never be committed.
+`.env.example` documents every current variable. The checked-in defaults work
+for loopback development; `.env` files are ignored. Node services read process
+environment directly, so export overrides in the shell or use Compose.
 
 ## Install and verify
 
@@ -17,47 +18,35 @@ ignored and must never be committed.
 pnpm install
 pnpm check
 pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
 ```
 
-`pnpm check` runs formatting verification, ESLint with type information,
-TypeScript strict checks, and the offline Vitest suite. The test suite must not
-contact Wikimedia or write to public wikis.
+`pnpm check` runs repository formatting, type-aware ESLint, ten strict
+type-check targets, and the offline Vitest suite. The ordinary suite uses fake
+MediaWiki clients and stores; it does not contact Wikimedia or write to a wiki.
+The Playwright suite starts Vite, intercepts the documented HTTP boundaries,
+and verifies the real editor in Chromium.
 
-## Rendering spike
+## Run from source
 
-Run the live validator intentionally:
+Start Redis and all three persistent development processes:
 
 ```sh
-pnpm test:live
+docker compose up redis -d
+pnpm dev
 ```
 
-It performs four sequential fixture renders, writes ignored output beneath
-`artifacts/render-spike/`, and fails when a pinned revision disappears, language
-direction changes, or a controlled media feature is absent. It supplies
-`maxlag=5`, an identified User-Agent, a 15-second request timeout, and no retry
-storm.
+| Component        | Default URL                          |
+| ---------------- | ------------------------------------ |
+| Editor           | `http://127.0.0.1:5173`              |
+| API              | `http://127.0.0.1:3000`              |
+| OpenAPI document | `http://127.0.0.1:3000/openapi.json` |
+| Preview origin   | `http://127.0.0.1:4174`              |
 
-Render without assertions and serve the output locally with:
-
-```sh
-pnpm spike:render
-pnpm spike:serve
-```
-
-Preview pages are then available at, for example,
-`http://127.0.0.1:4174/previews/media-suite`. A real editor must embed this URL
-in an iframe with `sandbox="allow-scripts allow-same-origin"` from a different
-origin. Do not serve the editor and preview from the same origin.
-
-## API application
-
-```sh
-pnpm --filter @wikione/api build
-pnpm --filter @wikione/api start
-```
-
-The API listens on `127.0.0.1:3000` by default. Environment variables may set
-`API_HOST` and `API_PORT`.
+Individual processes are available as `pnpm dev:web`, `pnpm dev:api`, and
+`pnpm dev:preview`. API and preview share Redis through opaque, expiring bundle
+IDs; neither service stores drafts.
 
 ## Containers
 
@@ -65,19 +54,36 @@ The API listens on `127.0.0.1:3000` by default. Environment variables may set
 docker compose up --build
 ```
 
-The composition starts the API and Redis. Milestone 0 does not connect the API
-to Redis yet; the service is present to stabilize local and CI infrastructure
-for upcoming session and render-bundle work. CI builds the API image on every
-branch push.
+Compose builds explicit `web`, `api`, and `preview` targets, waits for health
+checks, and runs Redis with persistence disabled. The editor is then available
+on port 5173. CI builds every target and validates `docker compose config`.
+
+For public deployment, replace all loopback origins in service environment and
+`apps/web/nginx.conf`, use HTTPS, and supply a descriptive User-Agent with a
+monitored contact. Do not add OAuth secrets until registration is approved.
+
+## Live rendering baseline
+
+Run this command intentionally; it contacts Wikimedia sequentially and writes
+ignored artifacts:
+
+```sh
+pnpm test:live
+pnpm spike:serve
+```
+
+The four fixtures prove English, Chinese, RTL, images, tables, templates,
+references, MathML, audio, and video structure. This validation is deliberately
+separate from CI to avoid background upstream traffic.
 
 ## Repository conventions
 
-- Use UTF-8, LF endings, four-space indentation, and self-contained comments at
-  trust boundaries or non-obvious behavior.
+- Use UTF-8, LF endings, four-space indentation, and comments at trust
+  boundaries or non-obvious behavior.
 - Work on feature branches and commit each coherent stage before beginning more
   than two major modifications.
 - Update `CHANGELOG.md` for every staged change.
-- Never commit `AGENTS.md`, agent/editor state, generated artifacts, credentials,
-  logs, or user data.
-- The repository is MIT-licensed. Do not copy GPL CodeMirror/MediaWiki extension
-  sources into it.
+- Never commit `AGENTS.md`, agent/editor state, generated artifacts, browser
+  traces, credentials, logs, or user data.
+- Do not copy GPL Wikimedia CodeMirror extension source. WikiOne remains MIT;
+  new runtime dependencies must be license-reviewed.

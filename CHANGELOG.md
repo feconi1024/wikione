@@ -23,3 +23,7 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Container build verification on every CI branch push.
 - Clean-checkout workspace resolution and Node 24-native actions for Linux CI.
 - Authentication handoff and anonymous/authenticated session contracts.
+- Independent MIT-licensed wikitext tokenizer, diagnostics, outline,
+  completions, formatting commands, and CodeMirror-core integration.
+- Framework-independent preview scheduling with debouncing, cancellation, and
+  stale-response protection plus versioned local-draft identities.

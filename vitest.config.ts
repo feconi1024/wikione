@@ -12,6 +12,10 @@ export default defineConfig({
                 repositoryRoot,
                 'packages/contracts/src/index.ts',
             ),
+            '@wikione/editor-core': resolve(
+                repositoryRoot,
+                'packages/editor-core/src/index.ts',
+            ),
             '@wikione/mediawiki': resolve(
                 repositoryRoot,
                 'packages/mediawiki/src/index.ts',
@@ -19,6 +23,10 @@ export default defineConfig({
             '@wikione/preview-document': resolve(
                 repositoryRoot,
                 'packages/preview-document/src/index.ts',
+            ),
+            '@wikione/wikitext-editor': resolve(
+                repositoryRoot,
+                'packages/wikitext-editor/src/index.ts',
             ),
         },
     },

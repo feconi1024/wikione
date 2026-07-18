@@ -1,28 +1,100 @@
 services:
+    web:
+        build:
+            context: .
+            target: web
+        ports:
+            - '5173:8080'
+        depends_on:
+            api:
+                condition: service_healthy
+            preview:
+                condition: service_healthy
+        healthcheck:
+            test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/healthz']
+            interval: 5s
+            timeout: 3s
+            retries: 10
+        security_opt:
+            - no-new-privileges:true
+
     api:
         build:
             context: .
+            target: api
         environment:
             API_HOST: 0.0.0.0
             API_PORT: 3000
+            EDITOR_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+            MEDIAWIKI_USER_AGENT: WikiOne/0.1 (https://github.com/feconi1024/wikione; local-development)
+            PREVIEW_BASE_URL: http://127.0.0.1:4174
+            PREVIEW_TTL_MILLISECONDS: 120000
+            REDIS_URL: redis://redis:6379
         ports:
             - '3000:3000'
         depends_on:
             redis:
                 condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'node',
+                    '-e',
+                    "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+                ]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+        read_only: true
+        tmpfs:
+            - /tmp
+        security_opt:
+            - no-new-privileges:true
+
+    preview:
+        build:
+            context: .
+            target: preview
+        environment:
+            EDITOR_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+            PREVIEW_HOST: 0.0.0.0
+            PREVIEW_PORT: 4174
+            REDIS_URL: redis://redis:6379
+        ports:
+            - '4174:4174'
+        depends_on:
+            redis:
+                condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'node',
+                    '-e',
+                    "fetch('http://127.0.0.1:4174/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+                ]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+        read_only: true
+        tmpfs:
+            - /tmp
+        security_opt:
+            - no-new-privileges:true
 
     redis:
         image: redis:7.4-alpine
-        command: ['redis-server', '--appendonly', 'yes']
+        command: ['redis-server', '--save', '', '--appendonly', 'no']
         ports:
             - '6379:6379'
-        volumes:
-            - wikione-redis:/data
         healthcheck:
             test: ['CMD', 'redis-cli', 'ping']
             interval: 5s
             timeout: 3s
             retries: 10
-
-volumes:
-    wikione-redis:
+        read_only: true
+        tmpfs:
+            - /data
+        security_opt:
+            - no-new-privileges:true

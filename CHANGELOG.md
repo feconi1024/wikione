@@ -48,3 +48,7 @@ All notable changes to WikiOne are documented in this file. The format follows
   serious accessibility violations, and responsive mobile panel switching.
 - Accessible naming for the CodeMirror editing surface and WCAG AA contrast
   corrections for muted outline, status-bar, and privacy text.
+- Parallel local development commands, separate API/preview/web container
+  targets, health-gated Compose wiring, and non-persistent Redis preview data.
+- Editor-origin CSP/security headers and complete environment examples without
+  premature OAuth secrets or configuration.

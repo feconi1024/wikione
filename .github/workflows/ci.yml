@@ -26,4 +26,7 @@ jobs:
             - run: pnpm build
             - run: pnpm exec playwright install --with-deps chromium
             - run: pnpm test:e2e
-            - run: docker build --tag wikione-api:ci .
+            - run: docker build --target api --tag wikione-api:ci .
+            - run: docker build --target preview --tag wikione-preview:ci .
+            - run: docker build --target web --tag wikione-web:ci .
+            - run: docker compose config --quiet

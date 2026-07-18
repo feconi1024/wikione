@@ -28,10 +28,15 @@ onMounted(() => {
         parent: host.value,
         state: EditorState.create({
             doc: props.modelValue,
-            extensions: createWikitextExtensions({
-                onChange: (source) => emit('update:modelValue', source),
-                onSelectionChange: (_anchor, head) => emitCursor(head),
-            }),
+            extensions: [
+                createWikitextExtensions({
+                    onChange: (source) => emit('update:modelValue', source),
+                    onSelectionChange: (_anchor, head) => emitCursor(head),
+                }),
+                EditorView.contentAttributes.of({
+                    'aria-label': 'Wikitext source editor',
+                }),
+            ],
         }),
     });
     emitCursor(0);

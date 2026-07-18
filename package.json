@@ -19,11 +19,14 @@
         "spike:render": "pnpm --filter @wikione/render-spike render",
         "spike:serve": "pnpm --filter @wikione/render-spike serve",
         "test": "vitest run",
+        "test:e2e": "playwright test --config e2e/playwright.config.ts",
         "test:live": "pnpm --filter @wikione/render-spike validate:live",
         "typecheck": "turbo run typecheck"
     },
     "devDependencies": {
+        "@axe-core/playwright": "^4.0.0",
         "@eslint/js": "^9.31.0",
+        "@playwright/test": "^1.0.0",
         "@types/node": "^24.0.15",
         "eslint": "^9.31.0",
         "eslint-config-prettier": "^10.1.8",

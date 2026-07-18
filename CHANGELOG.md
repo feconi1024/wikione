@@ -43,3 +43,8 @@ All notable changes to WikiOne are documented in this file. The format follows
   session, publishing, or wiki write path is active before registration.
 - Dedicated preview-origin service with opaque-ID retrieval, expiry handling,
   strict frame/CSP/permissions headers, no-store responses, and no auth routes.
+- Playwright browser coverage for continuous compilation, last-good-preview
+  retention, toolbar editing, keyboard pane resizing, IndexedDB restoration,
+  serious accessibility violations, and responsive mobile panel switching.
+- Accessible naming for the CodeMirror editing surface and WCAG AA contrast
+  corrections for muted outline, status-bar, and privacy text.

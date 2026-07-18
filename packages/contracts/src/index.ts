@@ -26,15 +26,20 @@ export const pageSourceSchema = z.object({
     title: z.string().min(1).max(512),
     exists: z.boolean(),
     contentModel: z.literal('wikitext'),
-    source: z.string(),
+    source: z.string().max(2_000_000),
     baseRevision: baseRevisionSchema.optional(),
     fetchedAt: z.iso.datetime(),
+});
+
+export const pageSourceRequestSchema = z.object({
+    wikiId: wikiIdSchema,
+    title: z.string().trim().min(1).max(512),
 });
 
 export const previewRequestSchema = z.object({
     wikiId: wikiIdSchema,
     title: z.string().min(1).max(512),
-    source: z.string(),
+    source: z.string().max(500_000),
     contentModel: z.literal('wikitext'),
     clientRevision: z.int().nonnegative(),
 });
@@ -50,6 +55,26 @@ export const previewResultSchema = z.object({
     renderUrl: z.url(),
     warnings: z.array(previewWarningSchema),
     generatedAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime(),
+});
+
+export const previewBundleIdSchema = z
+    .string()
+    .regex(
+        /^[A-Za-z0-9_-]{32}$/u,
+        'Preview IDs must be opaque base64url values.',
+    );
+
+export const authenticationAvailabilitySchema = z.object({
+    available: z.literal(false),
+    reason: z.literal('oauth-registration-pending'),
+    message: z.string().min(1).max(500),
+});
+
+export const apiErrorSchema = z.object({
+    code: z.string().min(1).max(100),
+    message: z.string().min(1).max(500),
+    requestId: z.string().min(1).max(200).optional(),
 });
 
 export const authenticationStartResultSchema = z.object({
@@ -132,9 +157,14 @@ export const publishResultSchema = z.discriminatedUnion('status', [
 export type WikiDescriptor = z.infer<typeof wikiDescriptorSchema>;
 export type BaseRevision = z.infer<typeof baseRevisionSchema>;
 export type PageSource = z.infer<typeof pageSourceSchema>;
+export type PageSourceRequest = z.infer<typeof pageSourceRequestSchema>;
 export type PreviewRequest = z.infer<typeof previewRequestSchema>;
 export type PreviewWarning = z.infer<typeof previewWarningSchema>;
 export type PreviewResult = z.infer<typeof previewResultSchema>;
+export type AuthenticationAvailability = z.infer<
+    typeof authenticationAvailabilitySchema
+>;
+export type ApiError = z.infer<typeof apiErrorSchema>;
 export type AuthenticationStartResult = z.infer<
     typeof authenticationStartResultSchema
 >;

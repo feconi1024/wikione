@@ -227,6 +227,7 @@ export class MediaWikiClient {
                 'indicators',
                 'categorieshtml',
                 'modules',
+                'modulestyles',
                 'jsconfigvars',
                 'parsewarnings',
             ].join('|'),

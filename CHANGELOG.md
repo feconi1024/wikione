@@ -33,3 +33,7 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Source-only IndexedDB autosave, restore, remote-version choice, and explicit
   discard controls; authentication is visible but deliberately unavailable.
 - Repository hygiene rule excluding generated TypeScript incremental metadata.
+- Bounded page/preview contracts, preview expiry metadata, opaque render IDs,
+  safe API errors, and an explicit OAuth-registration-pending response.
+- Short-lived preview storage with tested in-memory expiry and a Redis adapter.
+- Parser requests now include `modulestyles` for complete ResourceLoader CSS.

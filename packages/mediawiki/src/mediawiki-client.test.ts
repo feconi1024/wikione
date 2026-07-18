@@ -99,6 +99,11 @@ describe('MediaWikiClient', () => {
         });
 
         expect(parsed.moduleStyles).toContain('ext.cite.styles');
+        const requestBody = fetchImplementation.mock.calls[0]?.[1]?.body;
+        expect(requestBody).toBeInstanceOf(URLSearchParams);
+        expect((requestBody as URLSearchParams).get('prop')).toContain(
+            'modulestyles',
+        );
         expect(parsed.javascriptConfig).toMatchObject({
             wgPageName: 'Sandbox',
         });

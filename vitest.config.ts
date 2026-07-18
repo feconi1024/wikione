@@ -24,6 +24,10 @@ export default defineConfig({
                 repositoryRoot,
                 'packages/preview-document/src/index.ts',
             ),
+            '@wikione/preview-store': resolve(
+                repositoryRoot,
+                'packages/preview-store/src/index.ts',
+            ),
             '@wikione/wikitext-editor': resolve(
                 repositoryRoot,
                 'packages/wikitext-editor/src/index.ts',

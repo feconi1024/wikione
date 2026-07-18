@@ -19,6 +19,7 @@ const result = (clientRevision: number): PreviewResult => ({
     renderUrl: `https://preview.example/previews/${String(clientRevision)}`,
     warnings: [],
     generatedAt: '2026-07-18T00:00:00.000Z',
+    expiresAt: '2026-07-18T00:02:00.000Z',
 });
 
 afterEach(() => {

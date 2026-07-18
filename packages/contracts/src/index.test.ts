@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    authenticationAvailabilitySchema,
+    pageSourceRequestSchema,
     authenticationStartResultSchema,
     previewRequestSchema,
     publishRequestSchema,
@@ -35,6 +37,24 @@ describe('shared contracts', () => {
         expect(result.success).toBe(false);
     });
 
+    it('bounds public page and preview inputs', () => {
+        expect(
+            pageSourceRequestSchema.safeParse({
+                wikiId: 'en-wikipedia',
+                title: '   ',
+            }).success,
+        ).toBe(false);
+        expect(
+            previewRequestSchema.safeParse({
+                wikiId: 'en-wikipedia',
+                title: 'Sandbox',
+                source: 'x'.repeat(500_001),
+                contentModel: 'wikitext',
+                clientRevision: 1,
+            }).success,
+        ).toBe(false);
+    });
+
     it('requires an explicit edit summary', () => {
         const result = publishRequestSchema.safeParse({
             wikiId: 'en-wikipedia',
@@ -63,6 +83,20 @@ describe('shared contracts', () => {
                 expiresAt: '2026-07-17T00:10:00.000Z',
             }).success,
         ).toBe(false);
+    });
+
+    it('represents OAuth as explicitly unavailable before registration', () => {
+        expect(
+            authenticationAvailabilitySchema.parse({
+                available: false,
+                reason: 'oauth-registration-pending',
+                message: 'Registration is not ready.',
+            }),
+        ).toEqual({
+            available: false,
+            reason: 'oauth-registration-pending',
+            message: 'Registration is not ready.',
+        });
     });
 
     it('parses anonymous and authenticated session states', () => {

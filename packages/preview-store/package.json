@@ -1,0 +1,22 @@
+{
+    "name": "@wikione/preview-store",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Short-lived preview bundle storage shared by WikiOne services",
+    "license": "MIT",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+    },
+    "dependencies": {
+        "@wikione/contracts": "workspace:*",
+        "redis": "^5.0.0"
+    }
+}

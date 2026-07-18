@@ -37,3 +37,7 @@ All notable changes to WikiOne are documented in this file. The format follows
   safe API errors, and an explicit OAuth-registration-pending response.
 - Short-lived preview storage with tested in-memory expiry and a Redis adapter.
 - Parser requests now include `modulestyles` for complete ResourceLoader CSS.
+- Milestone 1 read-only API routes for the fixed English Wikipedia registry,
+  page loading, bounded/rate-limited preview compilation, and safe errors.
+- Explicit cookie-free OAuth availability placeholder; no sign-in, token,
+  session, publishing, or wiki write path is active before registration.

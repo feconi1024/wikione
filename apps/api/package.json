@@ -2,7 +2,7 @@
     "name": "@wikione/api",
     "version": "0.0.0",
     "private": true,
-    "description": "WikiOne backend-for-frontend foundation",
+    "description": "WikiOne backend-for-frontend for source loading and preview compilation",
     "license": "MIT",
     "type": "module",
     "scripts": {
@@ -11,8 +11,16 @@
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
+        "@fastify/cors": "^11.0.0",
+        "@fastify/rate-limit": "^10.0.0",
         "@fastify/swagger": "^9.5.1",
         "@wikione/contracts": "workspace:*",
+        "@wikione/mediawiki": "workspace:*",
+        "@wikione/preview-document": "workspace:*",
+        "@wikione/preview-store": "workspace:*",
         "fastify": "^5.4.0"
+    },
+    "devDependencies": {
+        "tsx": "^4.20.3"
     }
 }

@@ -4,6 +4,7 @@ dist/
 coverage/
 .turbo/
 artifacts/
+*.tsbuildinfo
 
 # Local configuration and secrets
 .env
@@ -27,4 +28,3 @@ Thumbs.db
 AGENTS.md
 .agents/
 .codex/
-

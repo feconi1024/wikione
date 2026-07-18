@@ -32,3 +32,4 @@ All notable changes to WikiOne are documented in this file. The format follows
   feedback that retains the last successful preview.
 - Source-only IndexedDB autosave, restore, remote-version choice, and explicit
   discard controls; authentication is visible but deliberately unavailable.
+- Repository hygiene rule excluding generated TypeScript incremental metadata.

@@ -41,3 +41,5 @@ All notable changes to WikiOne are documented in this file. The format follows
   page loading, bounded/rate-limited preview compilation, and safe errors.
 - Explicit cookie-free OAuth availability placeholder; no sign-in, token,
   session, publishing, or wiki write path is active before registration.
+- Dedicated preview-origin service with opaque-ID retrieval, expiry handling,
+  strict frame/CSP/permissions headers, no-store responses, and no auth routes.

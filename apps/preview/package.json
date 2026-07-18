@@ -1,0 +1,22 @@
+{
+    "name": "@wikione/preview",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Isolated origin for serving short-lived WikiOne preview documents",
+    "license": "MIT",
+    "type": "module",
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "start": "node dist/server.js",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+    },
+    "dependencies": {
+        "@wikione/contracts": "workspace:*",
+        "@wikione/preview-document": "workspace:*",
+        "@wikione/preview-store": "workspace:*",
+        "fastify": "^5.4.0"
+    },
+    "devDependencies": {
+        "tsx": "^4.20.3"
+    }
+}

@@ -27,3 +27,8 @@ All notable changes to WikiOne are documented in this file. The format follows
   completions, formatting commands, and CodeMirror-core integration.
 - Framework-independent preview scheduling with debouncing, cancellation, and
   stale-response protection plus versioned local-draft identities.
+- Responsive Vue split-pane workspace with a formatting toolbar, navigable
+  outline, keyboard-resizable divider, mobile source/preview tabs, and status
+  feedback that retains the last successful preview.
+- Source-only IndexedDB autosave, restore, remote-version choice, and explicit
+  discard controls; authentication is visible but deliberately unavailable.

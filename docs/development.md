@@ -4,7 +4,8 @@
 
 - Node.js 24 or newer
 - pnpm 11
-- Redis 7 for the live API/preview path
+- PostgreSQL 17 for durable first-party accounts
+- Redis 7 for encrypted sessions and preview bundles
 - Optional: Docker with Compose
 - Chromium installed by Playwright for browser tests
 
@@ -22,7 +23,7 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-`pnpm check` runs repository formatting, type-aware ESLint, ten strict
+`pnpm check` runs repository formatting, type-aware ESLint, strict
 type-check targets, and the offline Vitest suite. The ordinary suite uses fake
 MediaWiki clients and stores; it does not contact Wikimedia or write to a wiki.
 The Playwright suite starts Vite, intercepts the documented HTTP boundaries,
@@ -30,10 +31,10 @@ and verifies the real editor in Chromium.
 
 ## Run from source
 
-Start Redis and all three persistent development processes:
+Start PostgreSQL, Redis, and all three development processes:
 
 ```sh
-docker compose up redis -d
+docker compose up postgres redis -d
 pnpm dev
 ```
 
@@ -45,8 +46,8 @@ pnpm dev
 | Preview origin   | `http://127.0.0.1:4174`              |
 
 Individual processes are available as `pnpm dev:web`, `pnpm dev:api`, and
-`pnpm dev:preview`. API and preview share Redis through opaque, expiring bundle
-IDs; neither service stores drafts.
+`pnpm dev:preview`. The API automatically applies the versioned account schema.
+API and preview use separate Redis key prefixes. Browser drafts remain local.
 
 ## Containers
 
@@ -54,13 +55,21 @@ IDs; neither service stores drafts.
 docker compose up --build
 ```
 
-Compose builds explicit `web`, `api`, and `preview` targets, waits for health
-checks, and runs Redis with persistence disabled. The editor is then available
-on port 5173. CI builds every target and validates `docker compose config`.
+Compose builds explicit `web`, `api`, and `preview` targets, waits for
+PostgreSQL/Redis and service health checks, persists PostgreSQL in the named
+`account-data` volume, and runs Redis without persistence. The editor is then
+available on port 5173. CI builds every target and validates Compose syntax.
 
-For public deployment, replace all loopback origins in service environment and
-`apps/web/nginx.conf`, use HTTPS, and supply a descriptive User-Agent with a
-monitored contact. Do not add OAuth secrets until registration is approved.
+For public deployment, replace loopback origins/CSP values, use HTTPS, keep the
+preview hostname separate, set `COOKIE_SECURE=true`, and provide independent
+random 32-byte `SESSION_ENCRYPTION_KEY_BASE64` and
+`SESSION_LOOKUP_HMAC_KEY_BASE64` values from a secret manager. Use private
+PostgreSQL/Redis networks, database credentials/backups, and a monitored
+MediaWiki User-Agent contact. Do not add Wikimedia OAuth secrets until approval.
+
+The checked-in base64 session values are local Compose examples, not secrets.
+When running source services outside Compose and no keys are set, non-production
+API startup generates ephemeral keys; restarting invalidates those sessions.
 
 ## Live rendering baseline
 

@@ -1,13 +1,13 @@
 # Wikimedia OAuth 2 registration worksheet
 
-## Current Milestone 1 status
+## Current Milestone 2 status
 
-Registration has not been submitted and no OAuth implementation is active.
-WikiOne shows a disabled sign-in control and a constant
-`oauth-registration-pending` availability response. There are no client IDs,
-secrets, callbacks, state records, sessions, cookies, authenticated upstream
-calls, or publish routes. The values below are a future external worksheet, not
-runtime configuration.
+Public Wikimedia registration has not been approved and no OAuth implementation
+is active. WikiOne now has independent first-party accounts/sessions. The
+connected-app UI keeps Wikimedia disconnected, start/callback routes return 503,
+and the publish route cannot write. There are no Wikimedia client IDs, secrets,
+authorization state, tokens, authenticated upstream calls, or edits. The values
+below are an external worksheet, not runtime configuration.
 
 OAuth application creation and public approval require a Wikimedia account,
 confirmed contact information, a final HTTPS deployment domain, and human review.
@@ -50,6 +50,7 @@ deletion, blocking, private data, or administrative grants.
 - [ ] Record approval date, consumer ID, grants, and callback in the operator
       runbook without committing the secret.
 
-Development may use an owner-only consumer tied to the developer's own account,
-but only after authentication work is explicitly started in a later milestone;
-its token must never be committed, shared, or used for public users.
+Any later owner-only development consumer must be isolated from public users and
+its token must never be committed or shared. Enabling even that adapter requires
+an explicit security-reviewed implementation stage; the current placeholders
+must not be repurposed with first-party credentials.

@@ -2,7 +2,7 @@
 
 This directory contains the product and engineering record for WikiOne.
 
-- [Architecture](architecture.md) describes the implemented Milestone 1
+- [Architecture](architecture.md) describes the implemented Milestone 2
   topology and trust boundaries.
 - [Wikitext editor](wikitext-editor.md) records the independent language layer,
   supported editing behavior, compatibility limits, and licensing boundary.
@@ -18,10 +18,12 @@ This directory contains the product and engineering record for WikiOne.
   checklist.
 - [Fidelity baseline](fidelity-baseline.md) records pinned target-rendering
   evidence.
-- [OAuth registration](oauth-registration.md) records the future external setup;
-  Milestone 1 contains no OAuth credentials or functional login path.
+- [OAuth registration](oauth-registration.md) records the future Wikimedia
+  setup and its separation from working first-party WikiOne accounts.
 - [Milestone 2 plan](milestone-2-plan.md) is the authoritative authentication,
   publishing-preparation, external-gate, and acceptance scope.
+- [Milestone 2 checklist](milestone-2-checklist.md) maps that scope to current
+  code, tests, and the remaining external approval gate.
 - [Milestone 1 checklist](milestone-1-checklist.md) maps every deliverable to
   current evidence and verification.
 - [Milestone 0 checklist](milestone-0-checklist.md) preserves the preceding

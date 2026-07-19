@@ -43,6 +43,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Browser coverage for first-party identity separation, account profile/logout,
   semantic review, zero write requests, conflict resolution, Escape/focus
   behavior, responsive privacy/review views, and serious accessibility issues.
+- Milestone 2 architecture, API, development, privacy, threat, OAuth, license,
+  operations, README, and completion-audit documentation aligned to the
+  implemented first-party and approval-gated publishing boundaries.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

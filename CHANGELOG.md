@@ -17,6 +17,11 @@
 - A deterministic target-API contract gate and sequential anonymous live
   compatibility report covering the supported, RTL, and controlled-media
   fixtures without retaining source text.
+- Browser coverage for composed multilingual input, real HttpOnly cookie
+  storage/removal, superseded preview cancellation, complete splitter keys,
+  and every public-beta review/error accessibility state.
+- Reviewed desktop/mobile visual baselines for account, connected-app,
+  publish-review, and preview-error surfaces.
 
 ### Changed
 
@@ -25,6 +30,9 @@
   scroll region is keyboard reachable in WebKit.
 - The web development server resolves workspace packages directly to source so
   browser tests and local edits cannot use stale package builds.
+- Publish-review line numbers meet WCAG AA contrast, scrollable diffs are
+  keyboard reachable, and the mobile review summary wraps without a
+  WebKit-only horizontal scroller.
 - MediaWiki transport now validates response envelopes and content types,
   rejects redirects, bounds overload retries and `Retry-After`, normalizes
   legacy API shapes, and never exposes upstream response or source text.

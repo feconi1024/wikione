@@ -40,8 +40,8 @@ export default defineConfig({
     use: {
         baseURL: 'http://127.0.0.1:5173',
         colorScheme: 'light',
+        contextOptions: { reducedMotion: 'reduce' },
         locale: 'en-US',
-        reducedMotion: 'reduce',
         screenshot: 'only-on-failure',
         serviceWorkers: 'block',
         timezoneId: 'UTC',

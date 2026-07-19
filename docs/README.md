@@ -18,6 +18,10 @@ This directory contains the product and engineering record for WikiOne.
   checklist.
 - [Fidelity baseline](fidelity-baseline.md) records pinned target-rendering
   evidence.
+- [Accessibility](accessibility.md) defines the WCAG target, automated coverage,
+  and required human assistive-technology sign-off.
+- [Browser support](browser-support.md) defines the tested public-beta engine
+  versions, feature matrix, and support boundaries.
 - [Release evidence](evidence/) contains source-free machine-readable audit
   records retained with the repository.
 - [OAuth registration](oauth-registration.md) records the future Wikimedia

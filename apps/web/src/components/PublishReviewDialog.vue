@@ -266,7 +266,11 @@ function errorTitle(category: NormalizedPublishError['category']): string {
             </div>
 
             <div class="review-body">
-                <section class="diff-panel" aria-labelledby="diff-title">
+                <section
+                    class="diff-panel"
+                    aria-labelledby="diff-title"
+                    tabindex="0"
+                >
                     <h3 id="diff-title">Source changes</h3>
                     <p v-if="!review.changed" class="empty-message">
                         There are no source changes to review.

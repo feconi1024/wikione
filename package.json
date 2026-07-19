@@ -23,8 +23,11 @@
         "spike:render": "pnpm --filter @wikione/render-spike render",
         "spike:serve": "pnpm --filter @wikione/render-spike serve",
         "test": "vitest run",
-        "test:e2e": "playwright test --config e2e/playwright.config.ts",
+        "test:a11y": "playwright test --config e2e/playwright.config.ts --grep @a11y --project=chromium-desktop --project=mobile-chrome",
+        "test:browser": "playwright test --config e2e/playwright.config.ts --grep-invert @visual",
+        "test:e2e": "playwright test --config e2e/playwright.config.ts --grep-invert @visual --project=chromium-desktop",
         "test:live": "pnpm --filter @wikione/render-spike validate:live",
+        "test:visual": "playwright test --config e2e/playwright.config.ts --grep @visual --project=chromium-desktop --project=mobile-chrome",
         "typecheck": "turbo run typecheck"
     },
     "devDependencies": {

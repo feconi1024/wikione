@@ -8,6 +8,30 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
+            '@wikione/contracts': fileURLToPath(
+                new URL(
+                    '../../packages/contracts/src/index.ts',
+                    import.meta.url,
+                ),
+            ),
+            '@wikione/editor-core': fileURLToPath(
+                new URL(
+                    '../../packages/editor-core/src/index.ts',
+                    import.meta.url,
+                ),
+            ),
+            '@wikione/publishing-core': fileURLToPath(
+                new URL(
+                    '../../packages/publishing-core/src/index.ts',
+                    import.meta.url,
+                ),
+            ),
+            '@wikione/wikitext-editor': fileURLToPath(
+                new URL(
+                    '../../packages/wikitext-editor/src/index.ts',
+                    import.meta.url,
+                ),
+            ),
         },
     },
     server: {

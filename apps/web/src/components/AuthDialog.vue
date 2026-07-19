@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { SessionStatus } from '@wikione/contracts';
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import { WikiOneApiClient } from '../api.js';
+import { focusModalControl, trapModalFocus } from '../modal-focus.js';
 
 const props = defineProps<{ readonly open: boolean }>();
 const emit = defineEmits<{
@@ -18,6 +19,7 @@ const password = ref('');
 const busy = ref(false);
 const message = ref('');
 const usernameInput = ref<HTMLInputElement>();
+const dialog = ref<HTMLElement>();
 const title = computed(() =>
     mode.value === 'login' ? 'Sign in to WikiOne' : 'Create a WikiOne account',
 );
@@ -27,21 +29,25 @@ watch(
     (open) => {
         if (open) {
             message.value = '';
-            void nextTick(() => usernameInput.value?.focus());
-            window.addEventListener('keydown', closeOnEscape);
+            void focusModalControl(usernameInput);
+            window.addEventListener('keydown', handleDialogKeydown);
         } else {
-            window.removeEventListener('keydown', closeOnEscape);
+            window.removeEventListener('keydown', handleDialogKeydown);
         }
     },
 );
 
-onBeforeUnmount(() => window.removeEventListener('keydown', closeOnEscape));
+onBeforeUnmount(() =>
+    window.removeEventListener('keydown', handleDialogKeydown),
+);
 
-function closeOnEscape(event: KeyboardEvent): void {
+function handleDialogKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
         event.preventDefault();
         emit('close');
+        return;
     }
+    trapModalFocus(event, dialog.value);
 }
 
 function switchMode(nextMode: 'login' | 'register'): void {
@@ -90,6 +96,7 @@ function safeMessage(error: unknown, fallback: string): string {
 <template>
     <div v-if="open" class="modal-backdrop" @click.self="emit('close')">
         <section
+            ref="dialog"
             class="modal-card auth-dialog"
             role="dialog"
             aria-modal="true"

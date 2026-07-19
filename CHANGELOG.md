@@ -6,6 +6,16 @@
 
 - Milestone 3 hardening/public-beta plan and evidence-first completion
   checklist, including an explicit MIT/GPL governance decision gate.
+- Dedicated accessibility, five-engine browser-compatibility, and deterministic
+  desktop/mobile visual-regression gates with reviewed baselines.
+
+### Changed
+
+- Modal dialogs now trap and restore keyboard focus, mobile account controls
+  retain an accessible name, CodeMirror uses a WCAG-AA token palette, and its
+  scroll region is keyboard reachable in WebKit.
+- The web development server resolves workspace packages directly to source so
+  browser tests and local edits cannot use stale package builds.
 
 All notable changes to WikiOne are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

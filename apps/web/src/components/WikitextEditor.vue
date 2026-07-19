@@ -39,6 +39,11 @@ onMounted(() => {
             ],
         }),
     });
+    editor.scrollDOM.tabIndex = 0;
+    editor.scrollDOM.setAttribute(
+        'aria-label',
+        'Wikitext editor scrolling region',
+    );
     emitCursor(0);
 });
 

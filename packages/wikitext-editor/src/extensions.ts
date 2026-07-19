@@ -7,8 +7,8 @@ import {
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import {
     bracketMatching,
-    defaultHighlightStyle,
     foldGutter,
+    HighlightStyle,
     indentOnInput,
     StreamLanguage,
     syntaxHighlighting,
@@ -179,6 +179,23 @@ const parser: StreamParser<WikitextStreamState> = {
     },
 };
 
+const accessibleHighlightStyle = HighlightStyle.define([
+    { tag: tags.comment, color: '#59656b', fontStyle: 'italic' },
+    { tag: tags.heading, color: '#633f00', fontWeight: '700' },
+    { tag: tags.processingInstruction, color: '#754600' },
+    {
+        tag: [tags.link, tags.url],
+        color: '#005c91',
+        textDecoration: 'underline',
+    },
+    { tag: tags.bool, color: '#763b73' },
+    { tag: tags.string, color: '#006c45' },
+    { tag: tags.variableName, color: '#704000' },
+    { tag: tags.separator, color: '#566169' },
+    { tag: tags.tagName, color: '#007149' },
+    { tag: tags.typeName, color: '#5e3b91' },
+]);
+
 export const wikitextLanguage = StreamLanguage.define(parser);
 
 export interface WikitextExtensionOptions {
@@ -204,7 +221,7 @@ export function createWikitextExtensions(
         highlightActiveLine(),
         highlightSelectionMatches(),
         wikitextLanguage,
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(accessibleHighlightStyle),
         autocompletion({ override: [wikitextCompletionSource] }),
         linter(
             (view): Diagnostic[] =>

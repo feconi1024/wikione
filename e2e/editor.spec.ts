@@ -26,6 +26,7 @@ interface MockPreviewRequest {
 }
 
 test('edits wikitext, recompiles continuously, and retains the last good preview', async ({
+    isMobile,
     page,
 }) => {
     const state = await mockServices(page);
@@ -34,15 +35,21 @@ test('edits wikitext, recompiles continuously, and retains the last good preview
     const sourcePane = page.locator('.source-pane');
     const previewPane = page.locator('.preview-pane');
     await expect(sourcePane).toBeVisible();
-    await expect(previewPane).toBeVisible();
+    if (isMobile) {
+        await expect(previewPane).toBeHidden();
+    } else {
+        await expect(previewPane).toBeVisible();
+    }
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
     await expect(compiledBody(page)).toContainText('Welcome to WikiOne');
 
-    const sourceBox = await sourcePane.boundingBox();
-    const previewBox = await previewPane.boundingBox();
-    expect(sourceBox).not.toBeNull();
-    expect(previewBox).not.toBeNull();
-    expect(sourceBox?.x ?? 0).toBeLessThan(previewBox?.x ?? 0);
+    if (!isMobile) {
+        const sourceBox = await sourcePane.boundingBox();
+        const previewBox = await previewPane.boundingBox();
+        expect(sourceBox).not.toBeNull();
+        expect(previewBox).not.toBeNull();
+        expect(sourceBox?.x ?? 0).toBeLessThan(previewBox?.x ?? 0);
+    }
 
     const editor = page.locator('.cm-content');
     await replaceEditorSource(
@@ -54,31 +61,57 @@ test('edits wikitext, recompiles continuously, and retains the last good preview
         .poll(() => state.requests.at(-1)?.source)
         .toBe('== Live section ==\n\nEdited Earth');
     await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    if (isMobile) {
+        await page
+            .getByRole('button', { name: 'Preview', exact: true })
+            .click();
+    }
     await expect(compiledBody(page)).toContainText('Edited Earth');
-    await expect(
-        page.getByRole('button', { name: 'Live section' }),
-    ).toBeVisible();
+    if (!isMobile) {
+        await expect(
+            page.getByRole('button', { name: 'Live section' }),
+        ).toBeVisible();
+    }
 
-    await editor.press('Control+A');
+    if (isMobile) {
+        await page.getByRole('button', { name: 'Source', exact: true }).click();
+    }
+    await selectAllEditorText(editor);
     await page.getByRole('button', { name: 'Bold selected text' }).click();
     await expect(editor).toContainText("'''== Live section ==");
+    if (isMobile) {
+        await page
+            .getByRole('button', { name: 'Preview', exact: true })
+            .click();
+    }
+    await expect(compiledBody(page)).toContainText("'''== Live section ==");
 
-    const separator = page.getByRole('separator', {
-        name: 'Resize source and preview panes',
-    });
-    await expect(separator).toHaveAttribute('aria-valuenow', '50');
-    await separator.press('ArrowRight');
-    await expect(separator).toHaveAttribute('aria-valuenow', '53');
+    if (!isMobile) {
+        const separator = page.getByRole('separator', {
+            name: 'Resize source and preview panes',
+        });
+        await expect(separator).toHaveAttribute('aria-valuenow', '50');
+        await separator.press('ArrowRight');
+        await expect(separator).toHaveAttribute('aria-valuenow', '53');
+    }
 
     const goodPreviewText = await compiledBody(page).textContent();
+    if (isMobile) {
+        await page.getByRole('button', { name: 'Source', exact: true }).click();
+    }
     await replaceEditorSource(page, editor, 'FAIL preview request');
+    if (isMobile) {
+        await page
+            .getByRole('button', { name: 'Preview', exact: true })
+            .click();
+    }
     await expect(
         page.getByText('Preview needs attention', { exact: true }),
     ).toBeVisible();
     await expect(compiledBody(page)).toHaveText(goodPreviewText ?? '');
 });
 
-test('persists a source-only local draft and has no serious accessibility violations', async ({
+test('@a11y persists a source-only local draft and has no serious accessibility violations', async ({
     page,
 }) => {
     await mockServices(page);
@@ -91,23 +124,16 @@ test('persists a source-only local draft and has no serious accessibility violat
         editor,
         '== Browser draft ==\n\nLocal only',
     );
-    await expect(
-        page.getByText('Saved locally', { exact: true }),
-    ).toBeVisible();
+    await expect(page.locator('.visually-hidden')).toContainText(
+        'Saved locally',
+    );
     await page.reload();
 
     await expect(page.locator('.cm-content')).toContainText('Browser draft');
-    await expect(
-        page.getByText(/Restored your local draft from/u),
-    ).toBeVisible();
-    const accessibility = await new AxeBuilder({ page })
-        .exclude('iframe')
-        .analyze();
-    const seriousViolations = accessibility.violations.filter(
-        (violation) =>
-            violation.impact === 'critical' || violation.impact === 'serious',
+    await expect(page.locator('.privacy-bar')).toContainText(
+        /Restored your local draft from/u,
     );
-    expect(seriousViolations).toEqual([]);
+    await expectNoSeriousAccessibilityViolations(page, true);
 });
 
 test('switches between source and compiled preview on a narrow screen', async ({
@@ -131,7 +157,7 @@ test('switches between source and compiled preview on a narrow screen', async ({
     expect(hasHorizontalOverflow).toBe(false);
 });
 
-test('registers a WikiOne identity and keeps Wikimedia connection separate', async ({
+test('@a11y registers a WikiOne identity and keeps Wikimedia connection separate', async ({
     page,
 }) => {
     await mockServices(page);
@@ -169,14 +195,7 @@ test('registers a WikiOne identity and keeps Wikimedia connection separate', asy
     await page.getByRole('button', { name: 'Save profile' }).click();
     await expect(page.getByText('Display name updated.')).toBeVisible();
 
-    const accessibility = await new AxeBuilder({ page }).analyze();
-    expect(
-        accessibility.violations.filter(
-            (violation) =>
-                violation.impact === 'critical' ||
-                violation.impact === 'serious',
-        ),
-    ).toEqual([]);
+    await expectNoSeriousAccessibilityViolations(page);
 
     await page.getByRole('button', { name: /Updated editor/u }).click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
@@ -202,8 +221,12 @@ test('reviews a semantic diff and cannot call the disabled publish endpoint', as
     const reviewButton = page.getByRole('button', { name: 'Review changes' });
     await reviewButton.click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.locator('del')).toContainText('Remote wiki source');
-    await expect(page.locator('ins')).toContainText('Improved source');
+    await expect(
+        page.getByRole('deletion').filter({ hasText: 'Remote wiki source' }),
+    ).toContainText('Remote wiki source');
+    await expect(
+        page.getByRole('insertion').filter({ hasText: 'Improved source' }),
+    ).toContainText('Improved source');
     await page.getByLabel(/Edit summary/u).fill('Improve the page');
     await page.getByLabel('Mark as a minor edit').check();
     await page
@@ -280,6 +303,108 @@ test('shows mobile privacy and review sheets without horizontal overflow', async
             () => document.documentElement.scrollWidth > window.innerWidth,
         ),
     ).toBe(false);
+});
+
+test('@a11y traps modal focus, restores focus, and audits every public route', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await expect(compiledBody(page)).toContainText('Welcome to WikiOne');
+
+    const signIn = page.getByRole('button', { name: 'Sign in', exact: true });
+    await signIn.click();
+    const dialog = page.getByRole('dialog', { name: 'Sign in to WikiOne' });
+    await expect(dialog).toBeVisible();
+    await expect(page.getByLabel('Username')).toBeFocused();
+    const closeSignIn = page.getByRole('button', { name: 'Close sign-in' });
+    await closeSignIn.focus();
+    await closeSignIn.press('Shift+Tab');
+    await expect(
+        dialog.getByRole('button', { name: 'Sign in', exact: true }).last(),
+    ).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(closeSignIn).toBeFocused();
+    await expectNoSeriousAccessibilityViolations(page);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(signIn).toBeFocused();
+
+    for (const route of ['/account', '/connected-apps', '/privacy']) {
+        await page.goto(route);
+        await expectNoSeriousAccessibilityViolations(page);
+        expect(
+            await page.evaluate(
+                () => document.documentElement.scrollWidth > window.innerWidth,
+            ),
+        ).toBe(false);
+    }
+
+    await page.goto('/');
+    await expect(compiledBody(page)).toContainText('Welcome to WikiOne');
+    const previewUrl = await page
+        .locator('iframe[title^="Compiled preview"]')
+        .getAttribute('src');
+    expect(previewUrl).toBeTruthy();
+    await page.goto(previewUrl ?? 'about:blank');
+    await expect(page.getByRole('main')).toContainText('Welcome to WikiOne');
+    await expectNoSeriousAccessibilityViolations(page);
+});
+
+test('@visual captures deterministic public-beta surfaces', async ({
+    page,
+}) => {
+    const state = await mockServices(page);
+    await page.goto('/');
+    await expect(compiledBody(page)).toContainText('Welcome to WikiOne');
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    await expect(page).toHaveScreenshot('editor-shell.png', {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.015,
+    });
+
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page).toHaveScreenshot('authentication-dialog.png', {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.015,
+    });
+    await page.keyboard.press('Escape');
+
+    await page.goto('/privacy');
+    await expect(
+        page.getByRole('heading', { name: 'Privacy and data controls' }),
+    ).toBeVisible();
+    await expect(page).toHaveScreenshot('privacy-route.png', {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.015,
+    });
+
+    state.prepareResult = {
+        status: 'conflict',
+        reason: 'revision-changed',
+        latestRevision: { id: 124, timestamp: generatedAt },
+        latestSource: '== Earth ==\n\nRemote concurrent source',
+    };
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Load page' }).click();
+    await replaceEditorSource(
+        page,
+        page.locator('.cm-content'),
+        '== Earth ==\n\nMy concurrent source',
+    );
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    await page.getByRole('button', { name: 'Review changes' }).click();
+    await page.getByLabel(/Edit summary/u).fill('Resolve concurrent edit');
+    await page.getByRole('button', { name: 'Check latest revision' }).click();
+    await expect(
+        page.getByRole('heading', { name: '1 source conflict' }),
+    ).toBeVisible();
+    await expect(page).toHaveScreenshot('publish-conflict.png', {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.015,
+    });
 });
 
 async function mockServices(page: Page): Promise<MockState> {
@@ -476,8 +601,18 @@ async function replaceEditorSource(
     source: string,
 ): Promise<void> {
     await editor.click();
-    await editor.press('Control+A');
+    await selectAllEditorText(editor);
     await page.keyboard.insertText(source);
+}
+
+async function selectAllEditorText(
+    editor: ReturnType<Page['locator']>,
+): Promise<void> {
+    // Playwright's emulated mobile WebKit uses the macOS editing shortcut even
+    // when the host runs Windows. Sending both leaves the document selected on
+    // every supported engine without relying on user-agent detection.
+    await editor.press('Control+A');
+    await editor.press('Meta+A');
 }
 
 function escapeHtml(value: string): string {
@@ -487,4 +622,22 @@ function escapeHtml(value: string): string {
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+}
+
+async function expectNoSeriousAccessibilityViolations(
+    page: Page,
+    excludePreview = false,
+): Promise<void> {
+    const builder = new AxeBuilder({ page });
+    if (excludePreview) {
+        builder.exclude('iframe');
+    }
+    const accessibility = await builder.analyze();
+    expect(
+        accessibility.violations.filter(
+            (violation) =>
+                violation.impact === 'critical' ||
+                violation.impact === 'serious',
+        ),
+    ).toEqual([]);
 }

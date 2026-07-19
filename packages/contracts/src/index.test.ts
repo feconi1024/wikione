@@ -75,6 +75,19 @@ describe('shared contracts', () => {
         });
 
         expect(result.success).toBe(false);
+        expect(
+            publishRequestSchema.safeParse({
+                wikiId: 'en-wikipedia',
+                title: 'Earth',
+                source: 'Text',
+                baseSource: 'Old text',
+                baseRevisionId: 42,
+                editingStartedAt: '2026-07-17T00:00:00.000Z',
+                summary: 'Update',
+                minor: false,
+                watchlist: 'preferences',
+            }).success,
+        ).toBe(false);
     });
 
     it('models OAuth handoff without exposing state or tokens', () => {

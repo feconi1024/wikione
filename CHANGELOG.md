@@ -27,6 +27,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Browser-safe publishing core with bounded semantic line review, three-way
   merge/conflict resolution, create/update safeguards, post-write verification,
   disabled production publisher, and typed abuse-filter/CAPTCHA/error mapping.
+- Anonymous latest-revision checks and publish preparation for safe create,
+  update, page-created, page-deleted, and revision-changed states plus an
+  explicit non-writing Wikimedia publish endpoint.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

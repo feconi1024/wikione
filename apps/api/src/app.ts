@@ -25,9 +25,16 @@ import {
     pageSourceSchema,
     previewRequestSchema,
     previewResultSchema,
+    publishCapabilitySchema,
+    publishPreparationRequestSchema,
+    publishPreparationResultSchema,
+    revisionCheckRequestSchema,
+    revisionCheckResultSchema,
     type ApiError,
     type PageSource,
     type PreviewResult,
+    type PublishPreparationResult,
+    type RevisionCheckResult,
     type WikiDescriptor,
 } from '@wikione/contracts';
 import {
@@ -427,6 +434,199 @@ export async function buildApi(
         },
     );
 
+    app.post(
+        '/v1/pages/revision-check',
+        {
+            config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+            schema: { tags: ['editor'] },
+        },
+        async (request, reply) => {
+            const parsed = revisionCheckRequestSchema.safeParse(request.body);
+            if (!parsed.success) {
+                return sendError(
+                    reply,
+                    400,
+                    'invalid-request',
+                    'A supported wiki, title, and optional base revision are required.',
+                    request,
+                );
+            }
+            const wiki = findSupportedWiki(parsed.data.wikiId);
+            if (!wiki) {
+                return sendUnsupportedWiki(reply, request);
+            }
+            try {
+                const revision = await mediaWikiClientFactory(
+                    wiki,
+                ).getRevisionSource({ title: parsed.data.title });
+                if (revision.contentModel !== 'wikitext') {
+                    return sendError(
+                        reply,
+                        422,
+                        'unsupported-content-model',
+                        'WikiOne can prepare only wikitext pages.',
+                        request,
+                    );
+                }
+                const result: RevisionCheckResult =
+                    revisionCheckResultSchema.parse(
+                        parsed.data.baseRevisionId === undefined
+                            ? {
+                                  status: 'created',
+                                  exists: true,
+                                  currentRevision: {
+                                      id: revision.revisionId,
+                                      timestamp: revision.timestamp,
+                                  },
+                                  latestSource: revision.source,
+                              }
+                            : parsed.data.baseRevisionId === revision.revisionId
+                              ? {
+                                    status: 'unchanged',
+                                    exists: true,
+                                    currentRevision: {
+                                        id: revision.revisionId,
+                                        timestamp: revision.timestamp,
+                                    },
+                                }
+                              : {
+                                    status: 'changed',
+                                    exists: true,
+                                    currentRevision: {
+                                        id: revision.revisionId,
+                                        timestamp: revision.timestamp,
+                                    },
+                                    latestSource: revision.source,
+                                },
+                    );
+                reply.header('Cache-Control', 'no-store');
+                return result;
+            } catch (error: unknown) {
+                if (isMissingRevision(error)) {
+                    const result: RevisionCheckResult =
+                        revisionCheckResultSchema.parse({
+                            status: 'missing',
+                            exists: false,
+                        });
+                    reply.header('Cache-Control', 'no-store');
+                    return result;
+                }
+                return sendUpstreamError(reply, request);
+            }
+        },
+    );
+
+    app.get(
+        '/v1/publish/capability',
+        { schema: { tags: ['editor'] } },
+        async (_request, reply) => {
+            reply.header('Cache-Control', 'no-store');
+            return publishCapabilitySchema.parse({
+                available: false,
+                reason: 'oauth-registration-pending',
+                message:
+                    'Review and conflict preparation are available, but Wikimedia publishing awaits OAuth approval.',
+            });
+        },
+    );
+
+    app.post(
+        '/v1/publish/prepare',
+        {
+            config: { rateLimit: { max: 15, timeWindow: '1 minute' } },
+            schema: { tags: ['editor'] },
+        },
+        async (request, reply) => {
+            const parsed = publishPreparationRequestSchema.safeParse(
+                request.body,
+            );
+            if (!parsed.success) {
+                return sendError(
+                    reply,
+                    400,
+                    'invalid-request',
+                    'A bounded draft, base snapshot, edit summary, and edit options are required.',
+                    request,
+                );
+            }
+            const wiki = findSupportedWiki(parsed.data.wikiId);
+            if (!wiki) {
+                return sendUnsupportedWiki(reply, request);
+            }
+            try {
+                const revision = await mediaWikiClientFactory(
+                    wiki,
+                ).getRevisionSource({ title: parsed.data.title });
+                if (revision.contentModel !== 'wikitext') {
+                    return sendError(
+                        reply,
+                        422,
+                        'unsupported-content-model',
+                        'WikiOne can prepare only wikitext pages.',
+                        request,
+                    );
+                }
+                const latestRevision = {
+                    id: revision.revisionId,
+                    timestamp: revision.timestamp,
+                };
+                const result: PublishPreparationResult =
+                    publishPreparationResultSchema.parse(
+                        parsed.data.baseRevisionId === undefined
+                            ? {
+                                  status: 'conflict',
+                                  reason: 'page-created',
+                                  latestRevision,
+                                  latestSource: revision.source,
+                              }
+                            : parsed.data.baseRevisionId === revision.revisionId
+                              ? {
+                                    status: 'ready',
+                                    operation: 'update',
+                                    latestRevision,
+                                }
+                              : {
+                                    status: 'conflict',
+                                    reason: 'revision-changed',
+                                    latestRevision,
+                                    latestSource: revision.source,
+                                },
+                    );
+                reply.header('Cache-Control', 'no-store');
+                return result;
+            } catch (error: unknown) {
+                if (isMissingRevision(error)) {
+                    const result: PublishPreparationResult =
+                        publishPreparationResultSchema.parse(
+                            parsed.data.baseRevisionId === undefined
+                                ? { status: 'ready', operation: 'create' }
+                                : {
+                                      status: 'conflict',
+                                      reason: 'page-deleted',
+                                      latestSource: '',
+                                  },
+                        );
+                    reply.header('Cache-Control', 'no-store');
+                    return result;
+                }
+                return sendUpstreamError(reply, request);
+            }
+        },
+    );
+
+    app.post(
+        '/v1/publish',
+        { schema: { tags: ['editor'] } },
+        async (request, reply) =>
+            sendError(
+                reply,
+                503,
+                'wikimedia-oauth-unavailable',
+                'No edit was submitted. Wikimedia OAuth registration is pending.',
+                request,
+            ),
+    );
+
     registerAuthRoutes(app, {
         authentication,
         editorOrigins,
@@ -459,6 +659,12 @@ function createDefaultMediaWikiClientFactory(
 
 function createPreviewId(): string {
     return randomBytes(24).toString('base64url');
+}
+
+function isMissingRevision(error: unknown): boolean {
+    return (
+        error instanceof MediaWikiApiError && error.code === 'missing-revision'
+    );
 }
 
 async function sendUnsupportedWiki(

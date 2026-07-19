@@ -174,18 +174,28 @@ export const watchlistBehaviorSchema = z.enum([
     'nochange',
 ]);
 
-export const publishRequestSchema = z.object({
-    wikiId: wikiIdSchema,
-    title: z.string().min(1).max(512),
-    source: z.string().max(500_000),
-    baseSource: z.string().max(500_000),
-    baseRevisionId: z.int().positive().optional(),
-    baseTimestamp: z.iso.datetime().optional(),
-    editingStartedAt: z.iso.datetime(),
-    summary: z.string().trim().min(1).max(500),
-    minor: z.boolean(),
-    watchlist: watchlistBehaviorSchema,
-});
+export const publishRequestSchema = z
+    .object({
+        wikiId: wikiIdSchema,
+        title: z.string().min(1).max(512),
+        source: z.string().max(500_000),
+        baseSource: z.string().max(500_000),
+        baseRevisionId: z.int().positive().optional(),
+        baseTimestamp: z.iso.datetime().optional(),
+        editingStartedAt: z.iso.datetime(),
+        summary: z.string().trim().min(1).max(500),
+        minor: z.boolean(),
+        watchlist: watchlistBehaviorSchema,
+    })
+    .refine(
+        (value) =>
+            (value.baseRevisionId === undefined) ===
+            (value.baseTimestamp === undefined),
+        {
+            message:
+                'Base revision ID and timestamp must be provided together.',
+        },
+    );
 
 export const revisionCheckRequestSchema = z.object({
     wikiId: wikiIdSchema,

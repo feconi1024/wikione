@@ -30,6 +30,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Anonymous latest-revision checks and publish preparation for safe create,
   update, page-created, page-deleted, and revision-changed states plus an
   explicit non-writing Wikimedia publish endpoint.
+- Local drafts now retain the exact base wikitext alongside revision metadata,
+  enabling lossless three-way merge while remaining backward compatible with
+  Milestone 1 draft records.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

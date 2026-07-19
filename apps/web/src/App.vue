@@ -69,6 +69,7 @@ const wikis = ref<WikiDescriptor[]>([fallbackWiki]);
 const wikiId = ref(fallbackWiki.id);
 const title = ref('Sandbox');
 const source = ref(starterSource);
+const baseSource = ref<string>('');
 const baseRevision = ref<BaseRevision>();
 const previewStatus = ref<PreviewStatus>({ phase: 'idle' });
 const previewUrl = ref('');
@@ -191,6 +192,7 @@ async function restoreInitialDraft(): Promise<void> {
             return;
         }
         source.value = draft.source;
+        baseSource.value = draft.baseSource ?? '';
         baseRevision.value = draft.baseRevision;
         draftStatus.value = 'saved';
         draftMessage.value = `Restored your local draft from ${formatTime(draft.updatedAt)}.`;
@@ -260,6 +262,7 @@ async function saveDraft(): Promise<void> {
             wikiId: wikiId.value,
             title: cleanTitle,
             source: source.value,
+            baseSource: baseSource.value,
             ...(baseRevision.value ? { baseRevision: baseRevision.value } : {}),
             updatedAt,
         });
@@ -300,6 +303,7 @@ async function loadPage(): Promise<void> {
         const page = await api.loadPage(wikiId.value, cleanTitle);
         const draft = await draftStore.get(wikiId.value, page.title);
         baseRevision.value = draft?.baseRevision ?? page.baseRevision;
+        baseSource.value = draft?.baseSource ?? page.source;
         if (draft && draft.source !== page.source) {
             source.value = draft.source;
             remotePage.value = page;
@@ -329,6 +333,7 @@ async function useWikiVersion(): Promise<void> {
     await draftStore.delete(wikiId.value, page.title).catch(() => undefined);
     title.value = page.title;
     source.value = page.source;
+    baseSource.value = page.source;
     baseRevision.value = page.baseRevision;
     remotePage.value = undefined;
     pageMessage.value = `Using the wiki version of ${page.title}.`;

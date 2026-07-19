@@ -12,7 +12,9 @@
     "packageManager": "pnpm@11.9.0",
     "scripts": {
         "build": "turbo run build",
+        "build:reproducible": "tsx scripts/reproducible-build.ts",
         "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+        "container:smoke": "tsx scripts/container-smoke.ts",
         "dev": "turbo run dev --parallel",
         "dev:api": "pnpm --filter @wikione/api dev",
         "dev:preview": "pnpm --filter @wikione/preview dev",
@@ -20,6 +22,8 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "lint": "eslint .",
+        "openapi:check": "pnpm --filter @wikione/api openapi:check",
+        "openapi:generate": "pnpm --filter @wikione/api openapi:generate",
         "spike:render": "pnpm --filter @wikione/render-spike render",
         "spike:serve": "pnpm --filter @wikione/render-spike serve",
         "test": "vitest run",

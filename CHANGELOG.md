@@ -24,6 +24,11 @@
   and every public-beta review/error accessibility state.
 - Reviewed desktop/mobile visual baselines for account, connected-app,
   publish-review, and preview-error surfaces.
+- Pinned, non-root OCI images, multi-platform Bake targets, container smoke and
+  reproducibility gates, and a digest-only release contract.
+- A release workflow that scans source and every image, emits provenance and
+  SPDX SBOMs, signs image digests and deployment manifests, and carries bounded
+  canary, promotion, and rollback intent.
 
 ### Changed
 

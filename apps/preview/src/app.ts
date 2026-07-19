@@ -17,6 +17,7 @@ export interface BuildPreviewOptions {
     readonly logger?: boolean;
     readonly previewStore?: PreviewStore;
     readonly editorOrigins?: readonly string[];
+    readonly trustProxy?: boolean | number;
 }
 
 /**
@@ -35,7 +36,7 @@ export function buildPreviewApp(
         logger: options.logger ?? false,
         logController: new LogController({ disableRequestLogging: true }),
         requestIdHeader: 'x-request-id',
-        trustProxy: false,
+        trustProxy: options.trustProxy ?? false,
     });
 
     app.addHook('onSend', async (_request, reply) => {

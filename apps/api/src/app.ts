@@ -89,6 +89,7 @@ export interface BuildApiOptions {
     readonly randomId?: () => string;
     readonly secureCookies?: boolean;
     readonly sessionKeyRing?: SessionKeyRing;
+    readonly trustProxy?: boolean | number;
 }
 
 /** Creates the API without opening a socket so tests can use Fastify injection. */
@@ -130,7 +131,7 @@ export async function buildApi(
         logController: new LogController({ disableRequestLogging: true }),
         logger: options.logger ?? false,
         requestIdHeader: 'x-request-id',
-        trustProxy: false,
+        trustProxy: options.trustProxy ?? false,
     });
 
     await app.register(cookie);

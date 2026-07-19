@@ -12,20 +12,13 @@ import {
 import { RedisPreviewStore } from '@wikione/preview-store';
 
 import { buildApi } from './app.js';
+import { readApiRuntimeConfig } from './runtime-config.js';
 
-const port = readPort(process.env.API_PORT, 3_000);
-const host = process.env.API_HOST?.trim() || '127.0.0.1';
-const redisUrl = process.env.REDIS_URL?.trim() || 'redis://127.0.0.1:6379';
-const databaseUrl =
-    process.env.DATABASE_URL?.trim() ||
-    'postgres://wikione:wikione@127.0.0.1:5432/wikione';
-const editorOrigins = readOrigins(process.env.EDITOR_ORIGINS);
-const previewTtlMilliseconds = readOptionalInteger(
-    process.env.PREVIEW_TTL_MILLISECONDS,
-);
+const config = readApiRuntimeConfig();
+const redisUrl = config.redisUrl;
 const previewStore = await RedisPreviewStore.connect(redisUrl);
 const sessionKeyRing = readEnvironmentSessionKeys();
-const accounts = await PostgresAccountRepository.connect(databaseUrl);
+const accounts = await PostgresAccountRepository.connect(config.databaseUrl);
 const sessions = await RedisSessionRepository.connect(redisUrl, sessionKeyRing);
 const authentication = new AuthenticationService({
     accounts,
@@ -34,71 +27,26 @@ const authentication = new AuthenticationService({
 });
 const app = await buildApi({
     authentication,
-    ...(editorOrigins ? { editorOrigins } : {}),
+    editorOrigins: config.editorOrigins,
     logger: true,
     ...(process.env.MEDIAWIKI_USER_AGENT
         ? { mediaWikiUserAgent: process.env.MEDIAWIKI_USER_AGENT }
         : {}),
-    ...(process.env.PREVIEW_BASE_URL
-        ? { previewBaseUrl: process.env.PREVIEW_BASE_URL }
-        : {}),
+    previewBaseUrl: config.previewBaseUrl,
     previewStore,
-    secureCookies: readBoolean(
-        process.env.COOKIE_SECURE,
-        process.env.NODE_ENV === 'production',
-    ),
-    ...(previewTtlMilliseconds === undefined ? {} : { previewTtlMilliseconds }),
+    secureCookies: config.secureCookies,
+    ...(config.previewTtlMilliseconds === undefined
+        ? {}
+        : { previewTtlMilliseconds: config.previewTtlMilliseconds }),
+    trustProxy: config.trustProxy,
 });
 
 try {
-    await app.listen({ host, port });
+    await app.listen({ host: config.host, port: config.port });
 } catch (error: unknown) {
     app.log.error(error);
     await app.close();
     process.exitCode = 1;
-}
-
-function readPort(value: string | undefined, fallback: number): number {
-    const parsed = readOptionalInteger(value) ?? fallback;
-    if (parsed < 1 || parsed > 65_535) {
-        throw new RangeError(`Invalid API_PORT: ${String(value)}`);
-    }
-    return parsed;
-}
-
-function readOptionalInteger(value: string | undefined): number | undefined {
-    if (value === undefined || !value.trim()) {
-        return undefined;
-    }
-    const parsed = Number(value);
-    if (!Number.isSafeInteger(parsed)) {
-        throw new RangeError(`Expected an integer, received: ${value}`);
-    }
-    return parsed;
-}
-
-function readOrigins(value: string | undefined): readonly string[] | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-    const origins = value
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean);
-    return origins.length > 0 ? origins : undefined;
-}
-
-function readBoolean(value: string | undefined, fallback: boolean): boolean {
-    if (value === undefined || !value.trim()) {
-        return fallback;
-    }
-    if (value === 'true') {
-        return true;
-    }
-    if (value === 'false') {
-        return false;
-    }
-    throw new TypeError(`Expected true or false, received: ${value}`);
 }
 
 function readEnvironmentSessionKeys() {

@@ -41,6 +41,8 @@
 - API and preview request telemetry now records only bounded operational
   metadata; request bodies, wikitext, credentials, and client addresses remain
   outside the structured completion logs.
+- Production startup now fails closed on plaintext data-store transports,
+  non-HTTPS public origins, insecure cookies, and missing trusted-proxy hops.
 
 All notable changes to WikiOne are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

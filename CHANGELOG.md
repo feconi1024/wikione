@@ -7,6 +7,10 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Added
 
+- Recoverable Milestone 2 authentication and publishing-preparation plan with
+  explicit acceptance evidence and Wikimedia OAuth release boundary.
+- Architecture decision separating first-party WikiOne identity from future
+  Wikimedia connected-app authorization.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

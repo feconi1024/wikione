@@ -20,6 +20,8 @@ This directory contains the product and engineering record for WikiOne.
   evidence.
 - [OAuth registration](oauth-registration.md) records the future external setup;
   Milestone 1 contains no OAuth credentials or functional login path.
+- [Milestone 2 plan](milestone-2-plan.md) is the authoritative authentication,
+  publishing-preparation, external-gate, and acceptance scope.
 - [Milestone 1 checklist](milestone-1-checklist.md) maps every deliverable to
   current evidence and verification.
 - [Milestone 0 checklist](milestone-0-checklist.md) preserves the preceding

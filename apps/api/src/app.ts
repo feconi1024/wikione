@@ -179,8 +179,7 @@ export async function buildApi(
     });
 
     app.addHook('onSend', async (_request, reply) => {
-        reply.header('X-Content-Type-Options', 'nosniff');
-        reply.header('Referrer-Policy', 'no-referrer');
+        setApiSecurityHeaders(reply);
     });
     app.addHook('onClose', async () => {
         await Promise.all([previewStore.close(), authentication.close()]);
@@ -902,6 +901,30 @@ function isLoopbackHost(hostname: string): boolean {
         hostname === '127.0.0.1' ||
         hostname === '[::1]'
     );
+}
+
+function setApiSecurityHeaders(reply: FastifyReply): void {
+    if (!reply.hasHeader('Cache-Control')) {
+        reply.header('Cache-Control', 'private, no-store, max-age=0');
+    }
+    reply.header(
+        'Content-Security-Policy',
+        "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+    );
+    reply.header('Cross-Origin-Opener-Policy', 'same-origin');
+    reply.header('Cross-Origin-Resource-Policy', 'same-site');
+    reply.header(
+        'Permissions-Policy',
+        'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
+    );
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains',
+    );
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('X-XSS-Protection', '0');
 }
 
 function normalizeStatusCode(value: number | undefined): number {

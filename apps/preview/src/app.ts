@@ -103,7 +103,12 @@ function setCommonSecurityHeaders(reply: FastifyReply): void {
         'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
     );
     reply.header('Referrer-Policy', 'no-referrer');
+    reply.header(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains',
+    );
     reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-XSS-Protection', '0');
 }
 
 async function sendUnavailable(

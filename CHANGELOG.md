@@ -10,6 +10,10 @@
   desktop/mobile visual-regression gates with reviewed baselines.
 - A complete OpenAPI 3.1 contract with deterministic artifact generation,
   semantic drift detection, and documented request, response, and error shapes.
+- A bounded HTTP load gate and production-scrypt concurrency benchmark with
+  explicit latency/error budgets and safeguards against Wikimedia targets.
+- A focused application-security suite for origin, header, body-limit,
+  preview-isolation, and disabled-write boundaries plus a runtime source audit.
 
 ### Changed
 

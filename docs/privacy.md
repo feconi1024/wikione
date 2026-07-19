@@ -1,66 +1,81 @@
 # Privacy notice and data inventory
 
-This document describes implemented Milestone 1 behavior and is a draft basis
-for a future public-service notice. It is not legal advice.
+This document describes implemented Milestone 2 behavior and is the source for
+the user-facing `/privacy` page. It is not legal advice.
 
 ## Data handled now
 
+### WikiOne accounts
+
+Registration stores a random account ID, username, normalized username, display
+name, salted scrypt password hash, and created/updated timestamps in PostgreSQL.
+The initial workflow does not collect an email address. Passwords are processed
+only for verification/hashing and are never logged or stored reversibly.
+
+Users can change their display name/password, revoke every session, and delete
+the account. Password change revokes previous sessions. Account deletion removes
+the account record and active session keys immediately from application stores.
+Database backups, if enabled by a public operator, need a separately published
+retention schedule.
+
+### Sessions
+
+The browser receives a random HTTP-only host cookie. Redis uses an HMAC lookup
+key and stores the session payload encrypted with AES-256-GCM. The payload
+contains account ID, session-family ID, CSRF value, issue/expiry times, and
+rotation generation. Default idle expiry is 30 minutes; absolute expiry is eight
+hours. Refresh rotates the token. Logout, logout-all, password change, replay
+detection, and deletion revoke sessions.
+
 ### Browser drafts
 
-The editor stores a versioned local draft in IndexedDB after edits. A record
-contains wiki ID, title, wikitext, update time, and optional base revision. It
-does not contain compiled HTML, account data, cookies, or credentials. Drafts
-remain in that browser profile until the user selects **Discard saved copy**,
-clears site data, or browser storage is removed.
+IndexedDB stores wiki ID, title, current wikitext, exact base wikitext/revision,
+and update time. Drafts stay in that browser profile until **Discard saved
+copy**, site-data clearing, or browser removal. They are not synchronized to the
+WikiOne account and cannot be recovered by the operator.
 
-### Page loading and compilation
+### Page loading, review, and compilation
 
-When the user loads a page, the WikiOne BFF sends the title anonymously to the
-fixed English Wikipedia Action API and returns its current wikitext/revision.
-When source changes, the BFF sends the title and draft wikitext to English
-Wikipedia for anonymous `action=parse` compilation. The editor discloses this
-in its persistent privacy bar.
+Page title loading and latest-revision checks cause anonymous requests from the
+BFF to English Wikipedia. Line diff and three-way merge run locally; proposed
+source is not sent upstream merely to display a review. Preview compilation
+sends title and proposed wikitext to the target wiki's anonymous parser.
 
-The BFF does not durably store raw source. It creates a rendered HTML document
-and stores that document, the wiki base origin, and creation/expiry times in
-Redis for two minutes. The browser receives only a random render URL. Supplied
-Compose configuration disables Redis snapshots and append-only persistence.
+The BFF does not durably store raw source. Rendered preview HTML, wiki base URL,
+and creation/expiry times live in Redis for two minutes by default. The preview
+iframe loads wiki styles, scripts, images, audio, and video directly, so those
+operators receive ordinary browser network metadata under their policies.
 
-The preview iframe loads Wikipedia/Wikimedia styles, scripts, images, audio,
-video, and other resources directly. Those operators can receive normal request
-metadata such as IP address, time, URL, and browser headers under their own
-policies. In a hosted deployment, the parse request originates from WikiOne's
-server while iframe resource requests originate from the user's browser.
+### Wikimedia accounts and edits
 
-### Logs and accounts
+No Wikimedia account identity, authorization code, access/refresh token, edit,
+or created revision is stored. Public OAuth and publishing are disabled. The
+WikiOne login never authorizes a wiki edit.
 
-Source-bearing Fastify request logging is disabled. Application errors expose
-only request IDs and normalized codes; titles, wikitext, parser HTML, summaries,
-cookies, and tokens are excluded by design. Infrastructure access logs must use
-the same restriction in a hosted deployment.
+### Logs
 
-Milestone 1 has no product analytics, advertising, tracking, user accounts,
-OAuth tokens, server sessions, email addresses, usernames, or publishing data.
-The disabled sign-in control and auth-availability response are placeholders
-only.
+Source-bearing application request logging is disabled. Safe errors expose
+request IDs and normalized codes. Passwords, cookies, tokens, encrypted session
+contents, usernames, titles, source, summaries, parser HTML, and raw upstream
+responses are excluded by design. Public infrastructure must preserve these
+restrictions and publish its metadata retention.
 
-## User controls and retention
+## Retention and controls
 
-| Data                            | Current retention/control                                             |
-| ------------------------------- | --------------------------------------------------------------------- |
-| Browser source draft            | Until explicit discard or browser/site-data removal                   |
-| Redis rendered preview document | 120 seconds by default; at most 10 minutes by configuration           |
-| Raw source in the BFF           | Request processing only; not written to application storage           |
-| Generated render-spike files    | Ignored local artifacts; developer deletes them when no longer needed |
-| Account/session/token data      | Not collected or created in Milestone 1                               |
+| Data                       | Default retention/control                                              |
+| -------------------------- | ---------------------------------------------------------------------- |
+| PostgreSQL account         | Until password-confirmed account deletion                              |
+| Redis session              | 30-minute idle / 8-hour absolute maximum; explicit revocation controls |
+| Browser draft/base source  | Until discard or browser/site-data removal                             |
+| Redis preview document     | 120 seconds by default; at most 10 minutes                             |
+| Raw source in BFF          | Request processing only                                                |
+| Wikimedia tokens/revisions | Not collected while approval is pending                                |
 
-Browser drafts are not synchronized and cannot be recovered by a WikiOne
-operator. Discarding a saved copy does not erase the text still open in the
-current editor tab.
+## Public-release work
 
-## Work required before public authentication
-
-After OAuth registration, this notice must be reviewed for token/session
-storage, logout, revocation, operator log retention, incident response, and the
-wiki revision created by publishing. Before registration approval, no OAuth
-secret or functional auth/write path should be added.
+Before operating a public account service, the operator must publish its legal
+identity/contact, jurisdiction-specific terms, backup/log retention, incident
+response, subprocessors, security contact, and account-data request process.
+Before enabling Wikimedia OAuth, this notice must add token retention,
+revocation, connected identity fields, external callback behavior, and the
+public revision created by an edit.

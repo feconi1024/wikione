@@ -10,49 +10,78 @@ from those schemas.
 - Additive optional fields are allowed within v1. Removing fields, changing
   meanings, or tightening accepted inputs requires a new route version.
 - Safe errors contain `code`, a bounded user-facing `message`, and optional
-  `requestId`; raw MediaWiki responses and submitted source are never returned.
-- Preview `clientRevision` is mandatory. The browser ignores any result older
-  than its newest requested document state.
+  `requestId`; raw MediaWiki responses, credentials, and submitted source are
+  never returned.
+- Authentication and account responses use `Cache-Control: no-store` and vary
+  on Origin.
 
 ## Implemented routes
 
-| Method | Route                   | Purpose                                                                 |
-| ------ | ----------------------- | ----------------------------------------------------------------------- |
-| GET    | `/healthz`              | Liveness response                                                       |
-| GET    | `/v1/meta/contracts`    | API/package version metadata                                            |
-| GET    | `/v1/wikis`             | Fixed enabled-wiki registry; currently English Wikipedia only           |
-| POST   | `/v1/pages/source`      | Anonymous latest wikitext and base revision, or an empty new-page shape |
-| POST   | `/v1/previews`          | Anonymous target compilation and short-lived opaque render URL          |
-| GET    | `/v1/auth/availability` | Constant OAuth-registration-pending placeholder                         |
-| GET    | `/openapi.json`         | Generated OpenAPI 3.1 document                                          |
+| Method | Route                         | Purpose                                                              |
+| ------ | ----------------------------- | -------------------------------------------------------------------- |
+| GET    | `/healthz`                    | Liveness response                                                    |
+| GET    | `/v1/meta/contracts`          | API/package version metadata                                         |
+| GET    | `/v1/wikis`                   | Fixed wiki registry; English Wikipedia only                          |
+| POST   | `/v1/pages/source`            | Anonymous latest wikitext/base revision or new-page shape            |
+| POST   | `/v1/pages/revision-check`    | Anonymous unchanged/changed/created/missing classification           |
+| POST   | `/v1/previews`                | Anonymous target compilation and short-lived render URL              |
+| GET    | `/v1/auth/availability`       | Separate WikiOne and Wikimedia capability status                     |
+| POST   | `/v1/auth/register`           | Create a first-party account and session                             |
+| POST   | `/v1/auth/login`              | Verify credentials and create a session                              |
+| GET    | `/v1/auth/session`            | Recover safe identity, CSRF value, expiry, and wiki connection state |
+| POST   | `/v1/auth/refresh`            | Atomically rotate session and CSRF values                            |
+| POST   | `/v1/auth/logout`             | Revoke the current session                                           |
+| POST   | `/v1/auth/logout-all`         | Revoke every session for the account                                 |
+| PATCH  | `/v1/account`                 | Update display name                                                  |
+| POST   | `/v1/account/password`        | Change password and revoke previous sessions                         |
+| DELETE | `/v1/account`                 | Password-confirmed account deletion                                  |
+| GET    | `/v1/auth/wikimedia/start`    | Nonfunctional approval-pending placeholder                           |
+| GET    | `/v1/auth/wikimedia/callback` | Nonfunctional approval-pending placeholder                           |
+| GET    | `/v1/publish/capability`      | Constant public-OAuth approval gate                                  |
+| POST   | `/v1/publish/prepare`         | Read-only create/update/conflict preflight                           |
+| POST   | `/v1/publish`                 | Deterministic 503; performs no edit                                  |
+| GET    | `/openapi.json`               | Generated OpenAPI 3.1 document                                       |
 
-There is no authentication-start, callback, session, token, publish, or wiki
-write route in Milestone 1.
+## Authentication boundary
 
-## Core implemented shapes
+`SessionStatus` is provider-discriminated. An authenticated response contains a
+`provider: "wikione"` account identity; `wikimedia.connected` remains false.
+No shape permits a WikiOne password session to masquerade as wiki authorization.
 
-- `WikiDescriptor`: stable ID, display name, language/direction, and clean HTTPS
-  base/API URLs. Clients submit only the ID; they cannot supply upstream hosts.
-- `PageSourceRequest`: `wikiId` and a trimmed, non-empty title of at most 512
-  characters.
-- `PageSource`: normalized title, existence, wikitext, optional revision
-  ID/timestamp, and fetch time. Source is bounded to 2,000,000 characters.
-- `PreviewRequest`: wiki, title, source, literal `wikitext` model, and monotonic
-  client revision. Source is bounded to 500,000 characters.
-- `PreviewResult`: matching revision, render URL, normalized parser warnings,
-  generation time, and expiry time. It contains neither source nor HTML.
-- `AuthenticationAvailability`: always `{ available: false, reason:
-"oauth-registration-pending", ... }` in this milestone.
+Registration/login require an exact configured editor `Origin`. Every
+cookie-authenticated mutation additionally requires the current
+`X-WikiOne-CSRF` value. Cookies are opaque, HTTP-only, host-only, `SameSite=Lax`,
+and `Secure` outside explicit loopback configuration.
+
+Username, display-name, password, source, title, summary, and error lengths are
+bounded. Passwords never appear in response contracts. There is no email or
+automated password-recovery contract in the initial first-party workflow.
+
+## Publishing preparation
+
+`PublishPreparationRequest` carries the proposed source, exact base source,
+paired base revision ID/timestamp, edit start time, required summary, minor flag,
+and watchlist choice. The API anonymously fetches only the latest wiki source:
+
+- no base and still missing: `ready/create`;
+- same base revision: `ready/update`;
+- new page appeared: `conflict/page-created`;
+- page disappeared: `conflict/page-deleted`; or
+- revision changed: `conflict/revision-changed` with latest source.
+
+The browser performs its local base/draft/latest merge. `publishing-core` also
+defines a future publisher port, create-only/update safeguards, exact revision
+verification, and a bounded error union for edit conflicts, AbuseFilter,
+CAPTCHA, protection, permission, rate limit, bad token, read-only mode, and
+verification failure. Only fake and disabled providers exist now.
+
+The runtime contains no Wikimedia code exchange, access/refresh token,
+authenticated Action API client, or upstream edit request. Both OAuth
+placeholder routes and `/v1/publish` return an approval-pending error.
+
+## Preview contract
 
 Preview IDs are exactly 32 base64url characters generated from 24 random bytes.
-Default bundle TTL is 120 seconds and cannot be configured above ten minutes.
-The preview route is limited to 30 requests per minute per API instance/IP; a
-public multi-instance deployment still needs shared adaptive upstream limits.
-
-## Reserved contracts
-
-The contract package retains future `AuthenticationStartResult`,
-`SessionStatus`, `PublishRequest`, and `PublishResult` schemas to keep the
-product boundary explicit. They do not imply a runnable route. OAuth and
-publishing implementation must wait for registration and a separate security
-review.
+Default bundle TTL is 120 seconds and cannot exceed ten minutes. The browser
+accepts only the newest `clientRevision`. Preview results contain neither source
+nor HTML; the separate preview origin serves the opaque document.

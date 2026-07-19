@@ -1,51 +1,55 @@
 # WikiOne
 
-WikiOne is an Overleaf-style online editor for MediaWiki wikitext. Milestone 1
-provides a responsive source/preview workspace for English Wikipedia with an
-independently implemented wikitext editing layer and continuously refreshed,
-target-rendered previews.
+WikiOne is an Overleaf-style online editor for MediaWiki wikitext. It combines
+a responsive source/compiled-page workspace with local drafts, first-party
+WikiOne accounts, source review, latest-revision checks, and three-way conflict
+resolution for an English Wikipedia MVP.
 
-## Milestone 1 capabilities
+## Milestone 2 capabilities
 
-- Side-by-side source and compiled-page panes with pointer and keyboard
-  resizing; narrow screens use accessible Source/Preview tabs.
-- A WikiOne-owned wikitext lexer, highlighter, diagnostics engine, outline,
-  snippets, autocomplete, and selection-aware toolbar commands built on the
-  permissively licensed CodeMirror 6 core.
-- Anonymous English Wikipedia page loading and `action=parse` compilation with
-  650 ms trailing debounce, cancellation, stale-result rejection, retry, parser
-  warnings, and last-good-preview retention.
-- Target parser HTML, images, tables, math, references, audio/video, styles, and
-  ResourceLoader modules assembled into an isolated preview document.
-- Source-only IndexedDB drafts with automatic save, restore, wiki/local version
-  choice, and explicit discard.
-- A fixed wiki registry, bounded/rate-limited API, opaque two-minute Redis
-  preview bundles, and a separate cookie-free preview origin.
+- Side-by-side source and target-rendered page panes, continuously recompiled
+  after edits; narrow screens use accessible Source/Preview tabs.
+- Independent wikitext highlighting, diagnostics, outline, snippets,
+  autocomplete, and toolbar commands built on permissively licensed CodeMirror
+  core packages.
+- Wikipedia parser fidelity for images, tables, math, references, audio/video,
+  styles, and ResourceLoader modules inside an isolated preview origin.
+- Source/base-snapshot IndexedDB drafts with autosave, restore, remote/local
+  choice, discard, and lossless conflict input.
+- First-party username/password accounts in PostgreSQL with scrypt hashes,
+  encrypted Redis sessions, CSRF/Origin protection, refresh, logout/logout-all,
+  identity/profile/password controls, and deletion.
+- User-facing connected-app and privacy pages that distinguish WikiOne identity
+  from Wikimedia authorization.
+- Semantic line diff, required edit summary, minor/watchlist choices,
+  latest-revision create/update preflight, and explicit mine/latest/manual
+  three-way conflict resolution.
+- A fake-tested publisher boundary covering create-only/update safeguards,
+  post-write revision verification, and normalized AbuseFilter/CAPTCHA errors.
 
-Authentication and publishing are deliberately unavailable until OAuth
-registration is ready. Moegirlpedia is also outside the current English
-Wikipedia MVP.
+Public Wikimedia OAuth approval is still required. Wikimedia connection and
+real publishing remain hard-disabled: the UI explains the gate, placeholder
+routes return 503, and the runtime has no authenticated MediaWiki write adapter.
+Moegirlpedia remains outside the English Wikipedia MVP.
 
 ## Quick start
 
-Requirements: Node.js 24 or newer and pnpm 11. For the source-development path,
-a Redis instance must listen on `127.0.0.1:6379`.
+Requirements: Node.js 24 or newer, pnpm 11, PostgreSQL 17, and Redis 7.
 
 ```sh
 pnpm install
-docker compose up redis -d
+docker compose up postgres redis -d
 pnpm dev
 ```
 
 Open `http://127.0.0.1:5173`. The API and isolated preview service listen on
-ports 3000 and 4174. Alternatively, Docker Compose builds and starts the entire
-stack:
+ports 3000 and 4174. Alternatively, build and start the complete stack:
 
 ```sh
 docker compose up --build
 ```
 
-Run the offline repository and browser gates with:
+Run repository and browser gates with:
 
 ```sh
 pnpm check
@@ -55,14 +59,16 @@ pnpm test:e2e
 ```
 
 `pnpm test:live` intentionally contacts Wikimedia to reproduce the pinned
-rendering-fidelity baseline. It is not part of ordinary offline tests.
+rendering-fidelity baseline; ordinary tests do not contact or edit any wiki.
 
 See [development setup](docs/development.md), the
-[Milestone 1 checklist](docs/milestone-1-checklist.md), and the
+[Milestone 2 checklist](docs/milestone-2-checklist.md), and the
 [documentation index](docs/README.md).
 
 ## License
 
 WikiOne is available under the [MIT License](LICENSE). The wikitext editor was
 implemented independently; no Wikimedia CodeMirror extension source is copied
-or adapted into this repository.
+or adapted. Milestone 2's text algorithms use the compatible MIT-licensed
+`node-diff3` and BSD-3-Clause-licensed `diff` packages, so changing WikiOne's
+license is neither required nor recommended for this architecture.

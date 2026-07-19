@@ -8,6 +8,14 @@ const repositoryRoot = fileURLToPath(new URL('.', import.meta.url));
 export default defineConfig({
     resolve: {
         alias: {
+            '@wikione/auth-core': resolve(
+                repositoryRoot,
+                'packages/auth-core/src/index.ts',
+            ),
+            '@wikione/auth-store': resolve(
+                repositoryRoot,
+                'packages/auth-store/src/index.ts',
+            ),
             '@wikione/contracts': resolve(
                 repositoryRoot,
                 'packages/contracts/src/index.ts',
@@ -27,6 +35,10 @@ export default defineConfig({
             '@wikione/preview-store': resolve(
                 repositoryRoot,
                 'packages/preview-store/src/index.ts',
+            ),
+            '@wikione/publishing-core': resolve(
+                repositoryRoot,
+                'packages/publishing-core/src/index.ts',
             ),
             '@wikione/wikitext-editor': resolve(
                 repositoryRoot,

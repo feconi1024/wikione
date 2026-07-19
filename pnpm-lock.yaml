@@ -46,6 +46,9 @@ importers:
 
     apps/api:
         dependencies:
+            '@fastify/cookie':
+                specifier: ^11.1.2
+                version: 11.1.2
             '@fastify/cors':
                 specifier: ^11.0.0
                 version: 11.3.0
@@ -55,6 +58,12 @@ importers:
             '@fastify/swagger':
                 specifier: ^9.5.1
                 version: 9.8.1
+            '@wikione/auth-core':
+                specifier: workspace:*
+                version: link:../../packages/auth-core
+            '@wikione/auth-store':
+                specifier: workspace:*
+                version: link:../../packages/auth-store
             '@wikione/contracts':
                 specifier: workspace:*
                 version: link:../../packages/contracts
@@ -127,6 +136,9 @@ importers:
             '@wikione/editor-core':
                 specifier: workspace:*
                 version: link:../../packages/editor-core
+            '@wikione/publishing-core':
+                specifier: workspace:*
+                version: link:../../packages/publishing-core
             '@wikione/wikitext-editor':
                 specifier: workspace:*
                 version: link:../../packages/wikitext-editor
@@ -146,6 +158,20 @@ importers:
             vue-tsc:
                 specifier: ^3.0.0
                 version: 3.3.7(typescript@5.9.3)
+
+    packages/auth-core: {}
+
+    packages/auth-store:
+        dependencies:
+            '@wikione/auth-core':
+                specifier: workspace:*
+                version: link:../auth-core
+            postgres:
+                specifier: ^3.4.0
+                version: 3.4.9
+            redis:
+                specifier: ^5.0.0
+                version: 5.12.1
 
     packages/contracts:
         dependencies:
@@ -178,6 +204,18 @@ importers:
             redis:
                 specifier: ^5.0.0
                 version: 5.12.1
+
+    packages/publishing-core:
+        dependencies:
+            '@wikione/contracts':
+                specifier: workspace:*
+                version: link:../contracts
+            diff:
+                specifier: ^8.0.0
+                version: 8.0.4
+            node-diff3:
+                specifier: ^3.2.0
+                version: 3.2.1
 
     packages/wikitext-editor:
         dependencies:
@@ -589,6 +627,12 @@ packages:
         resolution:
             {
                 integrity: sha512-KoWKW+MhvfTRWL4qrhUwAAZoaChluo0m0vbiJlGMt2GXvL4LVPQEjt8kSpHI3IBq5Rez8fg+XeH3cneztq+C7A==,
+            }
+
+    '@fastify/cookie@11.1.2':
+        resolution:
+            {
+                integrity: sha512-Dtrpk/YOGUsbRMvP/8ZqPpwnMRv0qSqodFdoQ2B589Obc7jw4s4Qla+cV72Bsm7WsZJnqlYFX/i7uSBq0xzg6g==,
             }
 
     '@fastify/cors@11.3.0':
@@ -1485,6 +1529,13 @@ packages:
             }
         engines: { node: '>=18' }
 
+    cookie@2.0.1:
+        resolution:
+            {
+                integrity: sha512-yuToqVvRrj6pfDXREyQAAv8SkAEk/8GS3jQRTiUMm66TVtBYmqQeoEjL2Lmq8Rpo6271vH76InTChTitEAm65w==,
+            }
+        engines: { node: '>=22' }
+
     crelt@1.0.7:
         resolution:
             {
@@ -1535,6 +1586,13 @@ packages:
                 integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==,
             }
         engines: { node: '>=6' }
+
+    diff@8.0.4:
+        resolution:
+            {
+                integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==,
+            }
+        engines: { node: '>=0.3.1' }
 
     entities@7.0.1:
         resolution:
@@ -2032,6 +2090,13 @@ packages:
                 integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==,
             }
 
+    node-diff3@3.2.1:
+        resolution:
+            {
+                integrity: sha512-eKZcJ8RtMQ3cIaA15EgmtwG927fYnRlhtdA4Q9HAcCpAZPQhhU2XptnTH9GeAkMiX2bAXxlJSAFa9shFbztPgw==,
+            }
+        engines: { bun: '>=1.3.10' }
+
     on-exit-leak-free@2.1.2:
         resolution:
             {
@@ -2166,6 +2231,13 @@ packages:
                 integrity: sha512-Mz8SaolMd8nB+G13WkORcxQKHZ/NE4xXevtkJHVuG+guo9/wYKlIMTKAqGdEmYOXR2ijPjTYNHssizdaVSUNdQ==,
             }
         engines: { node: ^10 || ^12 || >=14 }
+
+    postgres@3.4.9:
+        resolution:
+            {
+                integrity: sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw==,
+            }
+        engines: { node: '>=12' }
 
     prelude-ls@1.2.1:
         resolution:
@@ -2849,6 +2921,11 @@ snapshots:
             ajv-formats: 3.0.1(ajv@8.20.0)
             fast-uri: 3.1.3
 
+    '@fastify/cookie@11.1.2':
+        dependencies:
+            cookie: 2.0.1
+            fastify-plugin: 6.0.0
+
     '@fastify/cors@11.3.0':
         dependencies:
             fastify-plugin: 6.0.0
@@ -3359,6 +3436,8 @@ snapshots:
 
     cookie@1.1.1: {}
 
+    cookie@2.0.1: {}
+
     crelt@1.0.7: {}
 
     cross-spawn@7.0.6:
@@ -3378,6 +3457,8 @@ snapshots:
     deep-is@0.1.4: {}
 
     dequal@2.0.3: {}
+
+    diff@8.0.4: {}
 
     entities@7.0.1: {}
 
@@ -3681,6 +3762,8 @@ snapshots:
 
     natural-compare@1.4.0: {}
 
+    node-diff3@3.2.1: {}
+
     on-exit-leak-free@2.1.2: {}
 
     openapi-types@12.1.3: {}
@@ -3757,6 +3840,8 @@ snapshots:
             nanoid: 3.3.16
             picocolors: 1.1.1
             source-map-js: 1.2.1
+
+    postgres@3.4.9: {}
 
     prelude-ls@1.2.1: {}
 

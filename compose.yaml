@@ -25,14 +25,21 @@ services:
         environment:
             API_HOST: 0.0.0.0
             API_PORT: 3000
+            COOKIE_SECURE: 'false'
+            DATABASE_URL: postgres://wikione:wikione@postgres:5432/wikione
             EDITOR_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
             MEDIAWIKI_USER_AGENT: WikiOne/0.1 (https://github.com/feconi1024/wikione; local-development)
             PREVIEW_BASE_URL: http://127.0.0.1:4174
             PREVIEW_TTL_MILLISECONDS: 120000
             REDIS_URL: redis://redis:6379
+            SESSION_ENCRYPTION_KEY_BASE64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            SESSION_KEY_ID: compose-development
+            SESSION_LOOKUP_HMAC_KEY_BASE64: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
         ports:
             - '3000:3000'
         depends_on:
+            postgres:
+                condition: service_healthy
             redis:
                 condition: service_healthy
         healthcheck:
@@ -98,3 +105,24 @@ services:
             - /data
         security_opt:
             - no-new-privileges:true
+
+    postgres:
+        image: postgres:17-alpine
+        environment:
+            POSTGRES_DB: wikione
+            POSTGRES_PASSWORD: wikione
+            POSTGRES_USER: wikione
+        ports:
+            - '5432:5432'
+        volumes:
+            - account-data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U wikione -d wikione']
+            interval: 5s
+            timeout: 3s
+            retries: 10
+        security_opt:
+            - no-new-privileges:true
+
+volumes:
+    account-data:

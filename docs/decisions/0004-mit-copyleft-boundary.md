@@ -20,3 +20,9 @@ Future wikitext language support must be independently implemented or use a
 permissively licensed dependency. Official Wikimedia behavior may be studied as
 an interoperability reference, but source copying requires a separate licensing
 decision and explicit repository-instruction change.
+
+Milestone 2 uses `node-diff3` 3.2.1 under MIT and `diff` 8.0.4 under
+BSD-3-Clause for isolated text merge/review algorithms. Both are permissive and
+compatible with WikiOne's MIT distribution. Reconstructing those mature
+algorithms would add correctness risk without resolving a license conflict, so
+the project license remains MIT.

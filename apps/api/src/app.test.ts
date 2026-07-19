@@ -196,7 +196,7 @@ describe('Milestone 1 API', () => {
         expect(parsePreview).not.toHaveBeenCalled();
     });
 
-    it('exposes authentication only as a cookie-free placeholder', async () => {
+    it('separates available WikiOne accounts from unavailable Wikimedia OAuth', async () => {
         const app = await createTestApi();
         const response = await app.inject({
             method: 'GET',
@@ -205,10 +205,13 @@ describe('Milestone 1 API', () => {
 
         expect(response.statusCode).toBe(200);
         expect(response.json()).toEqual({
-            available: false,
-            reason: 'oauth-registration-pending',
-            message:
-                'Sign-in and publishing are unavailable until OAuth registration is complete.',
+            firstParty: { available: true, provider: 'wikione' },
+            wikimedia: {
+                available: false,
+                reason: 'oauth-registration-pending',
+                message:
+                    'WikiOne accounts are available. Wikimedia connection awaits public OAuth approval.',
+            },
         });
         expect(response.headers['set-cookie']).toBeUndefined();
     });
@@ -237,7 +240,155 @@ describe('Milestone 1 API', () => {
         );
         expect(denied.headers['access-control-allow-origin']).toBeUndefined();
     });
+
+    it('checks unchanged and changed revisions without a write request', async () => {
+        const getRevisionSource = vi.fn().mockResolvedValue({
+            pageId: 9228,
+            revisionId: 124,
+            timestamp,
+            title: 'Earth',
+            contentModel: 'wikitext',
+            source: 'Latest source',
+        });
+        const app = await createTestApi({ getRevisionSource });
+        const unchanged = await app.inject({
+            method: 'POST',
+            url: '/v1/pages/revision-check',
+            payload: {
+                wikiId: 'en-wikipedia',
+                title: 'Earth',
+                baseRevisionId: 124,
+            },
+        });
+        const changed = await app.inject({
+            method: 'POST',
+            url: '/v1/pages/revision-check',
+            payload: {
+                wikiId: 'en-wikipedia',
+                title: 'Earth',
+                baseRevisionId: 123,
+            },
+        });
+
+        expect(unchanged.json()).toMatchObject({
+            status: 'unchanged',
+            currentRevision: { id: 124 },
+        });
+        expect(changed.json()).toMatchObject({
+            status: 'changed',
+            latestSource: 'Latest source',
+        });
+    });
+
+    it('classifies safe create/update and every concurrent page conflict', async () => {
+        const missing = vi
+            .fn()
+            .mockRejectedValue(
+                new MediaWikiApiError('not found', 'missing-revision'),
+            );
+        const missingApp = await createTestApi({ getRevisionSource: missing });
+        const safeCreate = await missingApp.inject({
+            method: 'POST',
+            url: '/v1/publish/prepare',
+            payload: preparationPayload(),
+        });
+        const pageDeleted = await missingApp.inject({
+            method: 'POST',
+            url: '/v1/publish/prepare',
+            payload: preparationPayload({
+                baseRevisionId: 123,
+                baseTimestamp: timestamp,
+            }),
+        });
+
+        const currentApp = await createTestApi();
+        const pageCreated = await currentApp.inject({
+            method: 'POST',
+            url: '/v1/publish/prepare',
+            payload: preparationPayload(),
+        });
+        const safeUpdate = await currentApp.inject({
+            method: 'POST',
+            url: '/v1/publish/prepare',
+            payload: preparationPayload({
+                baseRevisionId: 123,
+                baseTimestamp: timestamp,
+            }),
+        });
+        const revisionChanged = await currentApp.inject({
+            method: 'POST',
+            url: '/v1/publish/prepare',
+            payload: preparationPayload({
+                baseRevisionId: 122,
+                baseTimestamp: timestamp,
+            }),
+        });
+
+        expect(safeCreate.json()).toMatchObject({
+            status: 'ready',
+            operation: 'create',
+        });
+        expect(pageDeleted.json()).toMatchObject({
+            status: 'conflict',
+            reason: 'page-deleted',
+        });
+        expect(pageCreated.json()).toMatchObject({
+            status: 'conflict',
+            reason: 'page-created',
+        });
+        expect(safeUpdate.json()).toMatchObject({
+            status: 'ready',
+            operation: 'update',
+        });
+        expect(revisionChanged.json()).toMatchObject({
+            status: 'conflict',
+            reason: 'revision-changed',
+        });
+    });
+
+    it('advertises the approval gate and cannot submit an edit', async () => {
+        const getRevisionSource = vi.fn();
+        const app = await createTestApi({ getRevisionSource });
+        const capability = await app.inject({
+            method: 'GET',
+            url: '/v1/publish/capability',
+        });
+        const publish = await app.inject({
+            method: 'POST',
+            url: '/v1/publish',
+            payload: preparationPayload(),
+        });
+
+        expect(capability.json()).toMatchObject({
+            available: false,
+            reason: 'oauth-registration-pending',
+        });
+        expect(publish.statusCode).toBe(503);
+        expect(publish.json()).toMatchObject({
+            code: 'wikimedia-oauth-unavailable',
+        });
+        expect(getRevisionSource).not.toHaveBeenCalled();
+    });
 });
+
+function preparationPayload(
+    revision: {
+        readonly baseRevisionId?: number;
+        readonly baseTimestamp?: string;
+    } = {},
+) {
+    return {
+        wikiId: 'en-wikipedia',
+        title: 'Earth',
+        source: 'Proposed source',
+        baseSource: revision.baseRevisionId ? 'Earth source' : '',
+        ...revision,
+        editingStartedAt: timestamp,
+        summary: 'Improve the page',
+        minor: false,
+        watchlist: 'preferences',
+    };
+}
 
 async function createTestApi(
     overrides: Partial<MediaWikiClientPort> = {},

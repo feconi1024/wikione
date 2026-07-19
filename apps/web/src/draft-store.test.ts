@@ -13,6 +13,7 @@ describe('IndexedDbDraftStore', () => {
             wikiId: 'en-wikipedia',
             title: 'Earth',
             source: 'Draft source',
+            baseSource: 'Original source',
             baseRevision: {
                 id: 42,
                 timestamp: '2026-07-18T00:00:00.000Z',

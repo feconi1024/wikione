@@ -20,9 +20,21 @@ describe('local draft identity', () => {
                 wikiId: 'en-wikipedia',
                 title: 'Earth',
                 source: 'Text',
+                baseSource: 'Base text',
                 updatedAt: '2026-07-18T00:00:00.000Z',
             }),
         ).toBe(true);
+        expect(
+            isLocalDraft({
+                version: 1,
+                key: 'v1:test',
+                wikiId: 'en-wikipedia',
+                title: 'Earth',
+                source: 'Text',
+                baseSource: 42,
+                updatedAt: '2026-07-18T00:00:00.000Z',
+            }),
+        ).toBe(false);
         expect(isLocalDraft({ version: 0 })).toBe(false);
         expect(isLocalDraft({ version: 1, source: 42 })).toBe(false);
     });

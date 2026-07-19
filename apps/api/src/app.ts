@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
@@ -11,13 +12,29 @@ import Fastify, {
 } from 'fastify';
 
 import {
+    AuthenticationService,
+    createPasswordHasher,
+    type SessionKeyRing,
+} from '@wikione/auth-core';
+import {
+    MemoryAccountRepository,
+    MemorySessionRepository,
+} from '@wikione/auth-store';
+import {
     pageSourceRequestSchema,
     pageSourceSchema,
     previewRequestSchema,
     previewResultSchema,
+    publishCapabilitySchema,
+    publishPreparationRequestSchema,
+    publishPreparationResultSchema,
+    revisionCheckRequestSchema,
+    revisionCheckResultSchema,
     type ApiError,
     type PageSource,
     type PreviewResult,
+    type PublishPreparationResult,
+    type RevisionCheckResult,
     type WikiDescriptor,
 } from '@wikione/contracts';
 import {
@@ -29,6 +46,7 @@ import {
 import { createPreviewDocument } from '@wikione/preview-document';
 import { MemoryPreviewStore, type PreviewStore } from '@wikione/preview-store';
 
+import { registerAuthRoutes } from './auth-routes.js';
 import { findSupportedWiki, supportedWikis } from './wiki-registry.js';
 
 const defaultPreviewTtlMilliseconds = 120_000;
@@ -58,6 +76,7 @@ export type MediaWikiClientFactory = (
 ) => MediaWikiClientPort;
 
 export interface BuildApiOptions {
+    readonly authentication?: AuthenticationService;
     readonly logger?: boolean;
     readonly previewStore?: PreviewStore;
     readonly previewBaseUrl?: string;
@@ -67,6 +86,8 @@ export interface BuildApiOptions {
     readonly mediaWikiUserAgent?: string;
     readonly now?: () => number;
     readonly randomId?: () => string;
+    readonly secureCookies?: boolean;
+    readonly sessionKeyRing?: SessionKeyRing;
 }
 
 /** Creates the API without opening a socket so tests can use Fastify injection. */
@@ -90,6 +111,19 @@ export async function buildApi(
         createDefaultMediaWikiClientFactory(
             options.mediaWikiUserAgent ?? defaultUserAgent,
         );
+    const memoryKeyRing = options.sessionKeyRing ?? {
+        activeKeyId: 'memory',
+        encryptionKeys: { memory: randomBytes(32) },
+        lookupHmacKey: randomBytes(32),
+    };
+    const authentication =
+        options.authentication ??
+        new AuthenticationService({
+            accounts: new MemoryAccountRepository(),
+            sessions: new MemorySessionRepository(memoryKeyRing, now),
+            passwordHasher: createPasswordHasher(),
+            now,
+        });
     const app = Fastify({
         bodyLimit: 600_000,
         logController: new LogController({ disableRequestLogging: true }),
@@ -98,6 +132,7 @@ export async function buildApi(
         trustProxy: false,
     });
 
+    await app.register(cookie);
     await app.register(swagger, {
         openapi: {
             openapi: '3.1.0',
@@ -121,8 +156,8 @@ export async function buildApi(
         },
     });
     await app.register(cors, {
-        credentials: false,
-        methods: ['GET', 'POST', 'OPTIONS'],
+        credentials: true,
+        methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
         origin: [...editorOrigins],
         strictPreflight: true,
     });
@@ -136,7 +171,7 @@ export async function buildApi(
         reply.header('Referrer-Policy', 'no-referrer');
     });
     app.addHook('onClose', async () => {
-        await previewStore.close();
+        await Promise.all([previewStore.close(), authentication.close()]);
     });
     app.setErrorHandler(async (error, request, reply) => {
         const statusCode = normalizeStatusCode(readErrorStatusCode(error));
@@ -399,38 +434,204 @@ export async function buildApi(
         },
     );
 
-    app.get(
-        '/v1/auth/availability',
+    app.post(
+        '/v1/pages/revision-check',
         {
-            schema: {
-                tags: ['authentication'],
-                response: {
-                    200: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['available', 'reason', 'message'],
-                        properties: {
-                            available: { type: 'boolean', const: false },
-                            reason: {
-                                type: 'string',
-                                const: 'oauth-registration-pending',
-                            },
-                            message: { type: 'string' },
-                        },
-                    },
-                },
-            },
+            config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+            schema: { tags: ['editor'] },
         },
+        async (request, reply) => {
+            const parsed = revisionCheckRequestSchema.safeParse(request.body);
+            if (!parsed.success) {
+                return sendError(
+                    reply,
+                    400,
+                    'invalid-request',
+                    'A supported wiki, title, and optional base revision are required.',
+                    request,
+                );
+            }
+            const wiki = findSupportedWiki(parsed.data.wikiId);
+            if (!wiki) {
+                return sendUnsupportedWiki(reply, request);
+            }
+            try {
+                const revision = await mediaWikiClientFactory(
+                    wiki,
+                ).getRevisionSource({ title: parsed.data.title });
+                if (revision.contentModel !== 'wikitext') {
+                    return sendError(
+                        reply,
+                        422,
+                        'unsupported-content-model',
+                        'WikiOne can prepare only wikitext pages.',
+                        request,
+                    );
+                }
+                const result: RevisionCheckResult =
+                    revisionCheckResultSchema.parse(
+                        parsed.data.baseRevisionId === undefined
+                            ? {
+                                  status: 'created',
+                                  exists: true,
+                                  currentRevision: {
+                                      id: revision.revisionId,
+                                      timestamp: revision.timestamp,
+                                  },
+                                  latestSource: revision.source,
+                              }
+                            : parsed.data.baseRevisionId === revision.revisionId
+                              ? {
+                                    status: 'unchanged',
+                                    exists: true,
+                                    currentRevision: {
+                                        id: revision.revisionId,
+                                        timestamp: revision.timestamp,
+                                    },
+                                }
+                              : {
+                                    status: 'changed',
+                                    exists: true,
+                                    currentRevision: {
+                                        id: revision.revisionId,
+                                        timestamp: revision.timestamp,
+                                    },
+                                    latestSource: revision.source,
+                                },
+                    );
+                reply.header('Cache-Control', 'no-store');
+                return result;
+            } catch (error: unknown) {
+                if (isMissingRevision(error)) {
+                    const result: RevisionCheckResult =
+                        revisionCheckResultSchema.parse({
+                            status: 'missing',
+                            exists: false,
+                        });
+                    reply.header('Cache-Control', 'no-store');
+                    return result;
+                }
+                return sendUpstreamError(reply, request);
+            }
+        },
+    );
+
+    app.get(
+        '/v1/publish/capability',
+        { schema: { tags: ['editor'] } },
         async (_request, reply) => {
             reply.header('Cache-Control', 'no-store');
-            return {
+            return publishCapabilitySchema.parse({
                 available: false,
                 reason: 'oauth-registration-pending',
                 message:
-                    'Sign-in and publishing are unavailable until OAuth registration is complete.',
-            } as const;
+                    'Review and conflict preparation are available, but Wikimedia publishing awaits OAuth approval.',
+            });
         },
     );
+
+    app.post(
+        '/v1/publish/prepare',
+        {
+            config: { rateLimit: { max: 15, timeWindow: '1 minute' } },
+            schema: { tags: ['editor'] },
+        },
+        async (request, reply) => {
+            const parsed = publishPreparationRequestSchema.safeParse(
+                request.body,
+            );
+            if (!parsed.success) {
+                return sendError(
+                    reply,
+                    400,
+                    'invalid-request',
+                    'A bounded draft, base snapshot, edit summary, and edit options are required.',
+                    request,
+                );
+            }
+            const wiki = findSupportedWiki(parsed.data.wikiId);
+            if (!wiki) {
+                return sendUnsupportedWiki(reply, request);
+            }
+            try {
+                const revision = await mediaWikiClientFactory(
+                    wiki,
+                ).getRevisionSource({ title: parsed.data.title });
+                if (revision.contentModel !== 'wikitext') {
+                    return sendError(
+                        reply,
+                        422,
+                        'unsupported-content-model',
+                        'WikiOne can prepare only wikitext pages.',
+                        request,
+                    );
+                }
+                const latestRevision = {
+                    id: revision.revisionId,
+                    timestamp: revision.timestamp,
+                };
+                const result: PublishPreparationResult =
+                    publishPreparationResultSchema.parse(
+                        parsed.data.baseRevisionId === undefined
+                            ? {
+                                  status: 'conflict',
+                                  reason: 'page-created',
+                                  latestRevision,
+                                  latestSource: revision.source,
+                              }
+                            : parsed.data.baseRevisionId === revision.revisionId
+                              ? {
+                                    status: 'ready',
+                                    operation: 'update',
+                                    latestRevision,
+                                }
+                              : {
+                                    status: 'conflict',
+                                    reason: 'revision-changed',
+                                    latestRevision,
+                                    latestSource: revision.source,
+                                },
+                    );
+                reply.header('Cache-Control', 'no-store');
+                return result;
+            } catch (error: unknown) {
+                if (isMissingRevision(error)) {
+                    const result: PublishPreparationResult =
+                        publishPreparationResultSchema.parse(
+                            parsed.data.baseRevisionId === undefined
+                                ? { status: 'ready', operation: 'create' }
+                                : {
+                                      status: 'conflict',
+                                      reason: 'page-deleted',
+                                      latestSource: '',
+                                  },
+                        );
+                    reply.header('Cache-Control', 'no-store');
+                    return result;
+                }
+                return sendUpstreamError(reply, request);
+            }
+        },
+    );
+
+    app.post(
+        '/v1/publish',
+        { schema: { tags: ['editor'] } },
+        async (request, reply) =>
+            sendError(
+                reply,
+                503,
+                'wikimedia-oauth-unavailable',
+                'No edit was submitted. Wikimedia OAuth registration is pending.',
+                request,
+            ),
+    );
+
+    registerAuthRoutes(app, {
+        authentication,
+        editorOrigins,
+        secureCookies: options.secureCookies ?? false,
+    });
 
     app.get(
         '/openapi.json',
@@ -458,6 +659,12 @@ function createDefaultMediaWikiClientFactory(
 
 function createPreviewId(): string {
     return randomBytes(24).toString('base64url');
+}
+
+function isMissingRevision(error: unknown): boolean {
+    return (
+        error instanceof MediaWikiApiError && error.code === 'missing-revision'
+    );
 }
 
 async function sendUnsupportedWiki(

@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    accountDeletionRequestSchema,
+    authenticationSuccessSchema,
     authenticationAvailabilitySchema,
-    pageSourceRequestSchema,
     authenticationStartResultSchema,
+    loginRequestSchema,
+    pageSourceRequestSchema,
     previewRequestSchema,
+    publishCapabilitySchema,
+    publishPreparationResultSchema,
     publishRequestSchema,
     publishResultSchema,
+    registrationRequestSchema,
+    revisionCheckResultSchema,
     sessionStatusSchema,
     wikiDescriptorSchema,
 } from './index.js';
@@ -60,6 +67,7 @@ describe('shared contracts', () => {
             wikiId: 'en-wikipedia',
             title: 'User:Example/Sandbox',
             source: 'Hello',
+            baseSource: '',
             editingStartedAt: '2026-07-17T00:00:00.000Z',
             summary: '   ',
             minor: false,
@@ -67,6 +75,19 @@ describe('shared contracts', () => {
         });
 
         expect(result.success).toBe(false);
+        expect(
+            publishRequestSchema.safeParse({
+                wikiId: 'en-wikipedia',
+                title: 'Earth',
+                source: 'Text',
+                baseSource: 'Old text',
+                baseRevisionId: 42,
+                editingStartedAt: '2026-07-17T00:00:00.000Z',
+                summary: 'Update',
+                minor: false,
+                watchlist: 'preferences',
+            }).success,
+        ).toBe(false);
     });
 
     it('models OAuth handoff without exposing state or tokens', () => {
@@ -88,34 +109,128 @@ describe('shared contracts', () => {
     it('represents OAuth as explicitly unavailable before registration', () => {
         expect(
             authenticationAvailabilitySchema.parse({
+                firstParty: { available: true, provider: 'wikione' },
+                wikimedia: {
+                    available: false,
+                    reason: 'oauth-registration-pending',
+                    message: 'Registration is not ready.',
+                },
+            }),
+        ).toEqual({
+            firstParty: { available: true, provider: 'wikione' },
+            wikimedia: {
                 available: false,
                 reason: 'oauth-registration-pending',
                 message: 'Registration is not ready.',
-            }),
-        ).toEqual({
-            available: false,
-            reason: 'oauth-registration-pending',
-            message: 'Registration is not ready.',
+            },
         });
     });
 
     it('parses anonymous and authenticated session states', () => {
         const states = [
-            { authenticated: false },
+            {
+                authenticated: false,
+                wikimedia: {
+                    connected: false,
+                    reason: 'oauth-registration-pending',
+                    message: 'Approval pending.',
+                },
+            },
             {
                 authenticated: true,
-                identity: {
-                    wikiId: 'en-wikipedia',
+                account: {
+                    provider: 'wikione',
+                    accountId: 'bb2f82ee-29f2-41c9-bd38-630f1228a967',
                     username: 'Example',
-                    userId: 42,
+                    displayName: 'Example editor',
+                    createdAt: '2026-07-17T00:00:00.000Z',
                 },
+                csrfToken: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ',
                 expiresAt: '2026-07-17T00:10:00.000Z',
+                absoluteExpiresAt: '2026-07-17T08:00:00.000Z',
+                wikimedia: {
+                    connected: false,
+                    reason: 'oauth-registration-pending',
+                    message: 'Approval pending.',
+                },
             },
         ];
 
         for (const state of states) {
             expect(sessionStatusSchema.safeParse(state).success).toBe(true);
         }
+    });
+
+    it('validates first-party account workflow payloads', () => {
+        const registration = {
+            username: 'Example',
+            displayName: 'Example editor',
+            password: 'correct horse battery staple',
+        };
+        expect(registrationRequestSchema.safeParse(registration).success).toBe(
+            true,
+        );
+        expect(
+            loginRequestSchema.safeParse({
+                username: registration.username,
+                password: registration.password,
+            }).success,
+        ).toBe(true);
+        expect(
+            accountDeletionRequestSchema.safeParse({
+                password: registration.password,
+                confirmation: 'keep',
+            }).success,
+        ).toBe(false);
+        expect(
+            authenticationSuccessSchema.safeParse({
+                session: {
+                    authenticated: true,
+                    account: {
+                        provider: 'wikione',
+                        accountId: 'bb2f82ee-29f2-41c9-bd38-630f1228a967',
+                        username: 'Example',
+                        displayName: 'Example editor',
+                        createdAt: '2026-07-17T00:00:00.000Z',
+                    },
+                    csrfToken: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ',
+                    expiresAt: '2026-07-17T00:30:00.000Z',
+                    absoluteExpiresAt: '2026-07-17T08:00:00.000Z',
+                    wikimedia: {
+                        connected: false,
+                        reason: 'oauth-registration-pending',
+                        message: 'Approval pending.',
+                    },
+                },
+            }).success,
+        ).toBe(true);
+    });
+
+    it('models revision readiness and the disabled publish capability', () => {
+        expect(
+            revisionCheckResultSchema.safeParse({
+                status: 'changed',
+                exists: true,
+                currentRevision: {
+                    id: 43,
+                    timestamp: '2026-07-17T01:00:00.000Z',
+                },
+                latestSource: 'Remote text',
+            }).success,
+        ).toBe(true);
+        expect(
+            publishPreparationResultSchema.safeParse({
+                status: 'ready',
+                operation: 'create',
+            }).success,
+        ).toBe(true);
+        expect(
+            publishCapabilitySchema.parse({
+                available: false,
+                reason: 'oauth-registration-pending',
+                message: 'Approval pending.',
+            }).available,
+        ).toBe(false);
     });
 
     it('parses every publish-result branch', () => {

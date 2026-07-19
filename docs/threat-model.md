@@ -1,95 +1,101 @@
 # Threat model
 
-## Milestone 1 security objectives
+## Milestone 2 security objectives
 
-1. Target-generated HTML and JavaScript cannot read or modify the editor origin.
-2. Parser content never enters the editor DOM or API JSON response.
-3. User-controlled wiki identifiers cannot turn backend requests into SSRF.
-4. Draft source and parser output do not enter application logs or durable
-   source storage.
-5. Preview URLs are hard to guess, short-lived, and useless after expiry.
-6. No partially implemented OAuth, session, or wiki-write surface exists before
-   registration.
+1. Target-generated HTML/JavaScript cannot reach the editor, accounts, or
+   cookies.
+2. WikiOne account authentication cannot be confused with Wikimedia
+   authorization.
+3. Passwords, cookies, session payloads, source, and summaries do not enter logs
+   or unsafe storage.
+4. Session fixation, CSRF, refresh replay, idle/absolute expiry, and revocation
+   have explicit controls.
+5. Wiki selection cannot become SSRF and review input cannot become HTML
+   injection or unbounded diff work.
+6. Public OAuth and MediaWiki writes remain impossible before approval.
 
 ## Trust boundaries
 
-- The Vue editor is trusted application code. Page titles, parser warnings, and
-  safe API messages are rendered as text.
-- The BFF receives draft source transiently, may call only fixed wiki registry
-  URLs, and creates anonymous parser requests. It holds no credentials.
-- Wikipedia APIs and ResourceLoader are external. Parser HTML, templates,
-  gadgets, and scripts are active and potentially hostile even when served by
-  Wikimedia.
-- The preview application/origin is disposable and untrusted by the editor. It
-  reads only opaque render bundles and cannot load source, authenticate, or
-  publish.
-- Redis contains rendered draft output for a short TTL and is not a source or
-  session database.
+- The Vue editor is trusted application code. Diff, conflict, identity, and
+  errors are rendered as text.
+- The BFF handles credentials and source transiently, talks only to fixed wiki
+  and private database/cache endpoints, and disables request logging.
+- PostgreSQL is durable identity storage; Redis is ephemeral encrypted session
+  and preview storage. Neither should be public-network reachable.
+- The preview origin is disposable/untrusted by the editor, receives no account
+  cookie, and exposes no auth/publish routes.
+- Wikipedia APIs, parser HTML, ResourceLoader, templates, and gadgets are
+  external and potentially hostile.
 
 ## Implemented controls
 
-### Parser HTML and ResourceLoader isolation
+### Passwords and accounts
 
-- Parser HTML is assembled into a complete document, never passed to editor
-  `innerHTML`, and served from the separate preview origin.
-- The iframe sandbox allows scripts and same-origin access only within that
-  isolated origin; it does not grant forms, top navigation, downloads, camera,
-  microphone, geolocation, or privileged parent messages.
-- Preview responses set `no-store`, CSP, exact `frame-ancestors`, permissions,
-  no-referrer, cross-origin resource policy, and `nosniff` headers.
-- ResourceLoader's required inline/eval CSP allowances exist only on the
-  preview origin. The editor CSP does not grant them.
+- Usernames are NFKC/case normalized for uniqueness while retaining display
+  form. PostgreSQL enforces the unique normalized key.
+- Passwords require at least 12 characters and at most 128 UTF-8 bytes and may
+  not contain the username.
+- Production hashing uses Node scrypt with `N=2^17`, `r=8`, `p=1`, a random
+  16-byte salt, 32-byte output, and constant-time comparison. Hash parameters
+  are encoded for future upgrade.
+- Login failures do not disclose whether username or password was wrong.
+- Register/login/password/delete routes are bounded and rate-limited.
 
-### Head and module handling
+### Sessions, Origin, and CSRF
 
-- `headhtml` is parsed structurally. Only language, direction, and validated
-  body-class tokens are read; raw head scripts/links/redirects are not copied.
-- Known article style modules plus parser-declared `modulestyles` are loaded.
-- Personalized `user`, `user.options`, and `user.styles` modules are filtered.
+- Cookies contain random 256-bit tokens only, are HTTP-only, host-only,
+  `SameSite=Lax`, and `Secure` by default outside explicit local configuration.
+- Redis lookup keys and account/family indexes are HMAC-SHA-256 values.
+- Session envelopes use AES-256-GCM with random IV, authenticated key ID, and a
+  separately configured HMAC key.
+- Unknown IDs are rejected. Refresh atomically converts active to retired and
+  creates the new token; retired-token replay revokes its family.
+- 30-minute idle and eight-hour absolute expiry are server enforced.
+- Exact configured Origin is required for registration/login and all account
+  mutations. Cookie-authenticated mutations also require the current
+  synchronizer CSRF header; cross-site Fetch Metadata is rejected.
+- Password change and deletion require current password; logout-all and account
+  deletion revoke account sessions.
 
-### SSRF, redirect, and request limits
+### Review, merge, and publishing boundary
 
-- The browser submits `en-wikipedia`, not a URL. The server resolves it from a
-  fixed registry containing clean HTTPS base/API URLs.
-- The MediaWiki client rejects credentials, queries, fragments, non-HTTPS URLs,
-  and redirects, and applies a 15-second timeout and `maxlag=5`.
-- API bodies are capped at 600,000 bytes; preview source is capped at 500,000
-  characters and page-source responses at 2,000,000.
-- Preview creation is rate-limited to 30 requests/minute per instance/IP and
-  the browser coalesces changes with a trailing debounce.
+- Review/merge accept at most 500,000 characters and use time/edit bounds for
+  two-way diff. All output stays text-only.
+- Base revision ID and timestamp must be paired. Revision preflight resolves a
+  fixed wiki ID and anonymously reloads current wikitext.
+- Three-way merge exposes every true overlap; it never silently chooses local or
+  remote text. Applying manual/mine/latest resolution returns through the normal
+  draft and preview pipeline.
+- Provider failures are narrowed to a safe enum. Arbitrary upstream details are
+  not returned.
+- The installed production provider is disabled. OAuth start/callback and
+  `/v1/publish` return 503; no runtime method issues a MediaWiki edit.
+- Fake-provider tests cover create-only intent, revision-bound updates, exact
+  revision verification, and AbuseFilter/CAPTCHA/error mapping.
 
-### Source and preview disclosure
+### Parser and SSRF isolation
 
-- Request logging is disabled for BFF/preview services; safe error messages do
-  not include upstream bodies or user input.
-- Redis bundles contain rendered HTML but not raw wikitext, use random 192-bit
-  IDs, expire after two minutes, and are served only by opaque GET route.
-- Malformed, missing, and expired preview IDs receive the same safe 404 shape.
-- The editor rejects stale compilation results and retains the last successful
-  document when a later request fails.
-- Browser drafts are source-only and can be explicitly discarded.
+- Parser HTML is never inserted into the editor DOM and is served only from the
+  sandboxed preview origin with CSP, frame, permissions, no-referrer,
+  cross-origin, no-store, and `nosniff` controls.
+- Browser input provides a fixed registry ID, not an upstream URL. The
+  MediaWiki client rejects non-HTTPS/credential/query/fragment URLs and
+  redirects and uses timeout/maxlag.
+- Request/body/source limits, preview debounce, rate limits, opaque 192-bit
+  preview IDs, and short TTL constrain load and disclosure.
 
-### Authentication and writes
+## Remaining production risks and gates
 
-- Sign-in is disabled, `/v1/auth/availability` always reports registration
-  pending, and neither service exposes login, callback, token, session, logout,
-  publish, or edit endpoints.
-- No OAuth environment variables, cookies, Authorization handling, CSRF state,
-  or write grants exist in the runtime. Future auth cannot be inferred from
-  reserved TypeScript contracts.
-
-## Remaining production work
-
-- Use distinct HTTPS hostnames and exact production CORS/frame values; never
-  collapse editor and preview onto one origin.
-- Add a read-only, allowlisted resource proxy if deployment policy requires
-  hiding user network metadata or constraining third-party resources.
-- Add a shared adaptive upstream concurrency queue and 429/503/maxlag backoff
-  for multi-instance public traffic; the current rate limiter is per instance.
-- Pin production images, isolate Redis on a private network, apply resource
-  limits, scan images, and configure metadata-only infrastructure log retention.
-- Perform CSP/browser tests against the final deployment host and target
-  ResourceLoader behavior.
-- Before OAuth or publishing, conduct a new threat review covering encrypted
-  tokens, host-only cookies, callback state, Origin/CSRF checks, revision-bound
-  writes, diffs, summaries, conflicts, and revocation.
+- Use unique managed encryption/HMAC keys, documented rotation/recovery, private
+  database/cache networks, TLS, backups, least privilege, dependency/image
+  scanning, resource limits, and incident response.
+- Replace per-instance authentication/upstream rate limits with shared adaptive
+  Redis limits before horizontally scaled public traffic.
+- Benchmark production scrypt concurrency and tune upward only within latency
+  and memory budgets; protect the service from distributed password-hash load.
+- Review public privacy/terms, account deletion and backup retention, operator
+  access, and security contact before accepting real users.
+- After public Wikimedia consumer approval, conduct a separate review of OAuth
+  state/PKCE/callbacks, secret and token encryption/rotation, grant scope,
+  revocation, authenticated edit CSRF tokens, abuse/CAPTCHA behavior, and live
+  conflict/revision verification. Approval alone does not enable the adapter.

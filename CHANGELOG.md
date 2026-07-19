@@ -7,6 +7,45 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Added
 
+- Recoverable Milestone 2 authentication and publishing-preparation plan with
+  explicit acceptance evidence and Wikimedia OAuth release boundary.
+- Architecture decision separating first-party WikiOne identity from future
+  Wikimedia connected-app authorization.
+- Provider-specific first-party account/session contracts, bounded publishing
+  preparation and revision-check contracts, and normalized publish failures.
+- Independently tested scrypt password hashing, Unicode username normalization,
+  opaque token hashing, AES-256-GCM session encryption, and CSRF comparison.
+- First-party authentication domain service with registration, login, session
+  rotation/replay handling, logout, logout-all, profile/password updates, and
+  account deletion plus PostgreSQL/Redis and in-memory repository adapters.
+- Credentialed first-party authentication and account API routes with exact
+  origin checks, synchronizer CSRF headers, HTTP-only cookies, rate limits,
+  refresh/logout controls, and inert Wikimedia OAuth start/callback routes.
+- PostgreSQL-backed account persistence and encrypted Redis sessions in Compose,
+  including health-gated startup, durable account storage, and explicit
+  development-only key/cookie configuration.
+- Browser-safe publishing core with bounded semantic line review, three-way
+  merge/conflict resolution, create/update safeguards, post-write verification,
+  disabled production publisher, and typed abuse-filter/CAPTCHA/error mapping.
+- Anonymous latest-revision checks and publish preparation for safe create,
+  update, page-created, page-deleted, and revision-changed states plus an
+  explicit non-writing Wikimedia publish endpoint.
+- Local drafts now retain the exact base wikitext alongside revision metadata,
+  enabling lossless three-way merge while remaining backward compatible with
+  Milestone 1 draft records.
+- Route-aware Vue account experience with registration/sign-in dialog, identity
+  menu, refresh/logout, account security and deletion controls, connected-apps
+  status, and an implementation-aligned privacy page.
+- Accessible publish-review sheet with semantic text diff, required summary,
+  minor/watchlist controls, preview freshness gate, latest-revision readiness,
+  explicit three-way conflict choices, provider-error guidance, and a disabled
+  approval-pending Wikimedia action.
+- Browser coverage for first-party identity separation, account profile/logout,
+  semantic review, zero write requests, conflict resolution, Escape/focus
+  behavior, responsive privacy/review views, and serious accessibility issues.
+- Milestone 2 architecture, API, development, privacy, threat, OAuth, license,
+  operations, README, and completion-audit documentation aligned to the
+  implemented first-party and approval-gated publishing boundaries.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

@@ -1,0 +1,23 @@
+{
+    "name": "@wikione/publishing-core",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Browser-safe diff, merge, and verified publisher orchestration for WikiOne",
+    "license": "MIT",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+    },
+    "dependencies": {
+        "@wikione/contracts": "workspace:*",
+        "diff": "^8.0.0",
+        "node-diff3": "^3.2.0"
+    }
+}

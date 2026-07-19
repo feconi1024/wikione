@@ -3,7 +3,7 @@
 WikiOne operates API traffic and must follow the current target wiki's API and
 User-Agent policies.
 
-## Implemented through Milestone 1
+## Implemented through Milestone 2
 
 - [x] Fixed HTTPS-only Action API endpoint for English Wikipedia.
 - [x] Descriptive `User-Agent` and `Api-User-Agent` identifying WikiOne and its
@@ -18,6 +18,9 @@ User-Agent policies.
       outside ordinary tests and CI.
 - [x] Target results are inspected through ephemeral previews instead of
       repeatedly fetched background jobs.
+- [x] Latest-revision and publish-preparation checks are user-triggered,
+      rate-limited, fixed-registry anonymous reads; no background polling or
+      authenticated write exists.
 
 ## Required before public beta
 

@@ -8,6 +8,8 @@ export interface LocalDraft {
     readonly wikiId: string;
     readonly title: string;
     readonly source: string;
+    /** Exact source loaded at edit start; required for three-way conflict merge. */
+    readonly baseSource?: string;
     readonly baseRevision?: BaseRevision;
     readonly updatedAt: string;
 }
@@ -32,6 +34,8 @@ export function isLocalDraft(value: unknown): value is LocalDraft {
         typeof record.wikiId === 'string' &&
         typeof record.title === 'string' &&
         typeof record.source === 'string' &&
+        (record.baseSource === undefined ||
+            typeof record.baseSource === 'string') &&
         typeof record.updatedAt === 'string' &&
         isOptionalBaseRevision(record.baseRevision)
     );

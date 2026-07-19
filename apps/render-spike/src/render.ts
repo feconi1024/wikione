@@ -13,6 +13,7 @@ import type { RenderManifest, RenderResult } from './manifest.js';
 export interface RenderAllOptions {
     readonly fixturesDirectory?: string;
     readonly outputDirectory?: string;
+    readonly timeoutMilliseconds?: number;
     readonly userAgent: string;
 }
 
@@ -34,6 +35,9 @@ export async function renderAllFixtures(
                 fixture,
                 fixturesDirectory,
                 outputDirectory,
+                ...(options.timeoutMilliseconds === undefined
+                    ? {}
+                    : { timeoutMilliseconds: options.timeoutMilliseconds }),
                 userAgent: options.userAgent,
             }),
         );
@@ -56,11 +60,15 @@ async function renderFixture(input: {
     readonly fixture: RenderFixture;
     readonly fixturesDirectory: string;
     readonly outputDirectory: string;
+    readonly timeoutMilliseconds?: number;
     readonly userAgent: string;
 }): Promise<RenderResult> {
     const client = new MediaWikiClient({
         apiUrl: input.fixture.apiUrl,
         userAgent: input.userAgent,
+        ...(input.timeoutMilliseconds === undefined
+            ? {}
+            : { timeoutMilliseconds: input.timeoutMilliseconds }),
     });
     const site = await client.getSiteInformation();
     const revision = input.fixture.revisionId
@@ -101,6 +109,7 @@ async function renderFixture(input: {
     return {
         id: input.fixture.id,
         label: input.fixture.label,
+        supportLevel: input.fixture.supportLevel,
         wikiBaseUrl: input.fixture.wikiBaseUrl,
         apiUrl: input.fixture.apiUrl,
         title: parsed.title,

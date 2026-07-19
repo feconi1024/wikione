@@ -18,6 +18,8 @@ This directory contains the product and engineering record for WikiOne.
   checklist.
 - [Fidelity baseline](fidelity-baseline.md) records pinned target-rendering
   evidence.
+- [Release evidence](evidence/) contains source-free machine-readable audit
+  records retained with the repository.
 - [OAuth registration](oauth-registration.md) records the future Wikimedia
   setup and its separation from working first-party WikiOne accounts.
 - [Milestone 2 plan](milestone-2-plan.md) is the authoritative authentication,

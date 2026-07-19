@@ -14,6 +14,9 @@
   explicit latency/error budgets and safeguards against Wikimedia targets.
 - A focused application-security suite for origin, header, body-limit,
   preview-isolation, and disabled-write boundaries plus a runtime source audit.
+- A deterministic target-API contract gate and sequential anonymous live
+  compatibility report covering the supported, RTL, and controlled-media
+  fixtures without retaining source text.
 
 ### Changed
 

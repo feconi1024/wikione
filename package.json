@@ -25,10 +25,11 @@
         "test": "vitest run",
         "test:a11y": "playwright test --config e2e/playwright.config.ts --grep @a11y --project=chromium-desktop --project=mobile-chrome",
         "test:browser": "playwright test --config e2e/playwright.config.ts --grep-invert @visual",
+        "test:compat": "vitest run packages/mediawiki apps/render-spike",
         "test:e2e": "playwright test --config e2e/playwright.config.ts --grep-invert @visual --project=chromium-desktop",
         "test:load": "tsx scripts/load-test.ts && pnpm test:load:password",
         "test:load:password": "pnpm --filter @wikione/auth-core build && tsx scripts/benchmark-password.ts",
-        "test:live": "pnpm --filter @wikione/render-spike validate:live",
+        "test:live": "pnpm --filter @wikione/render-spike... build && pnpm --filter @wikione/render-spike validate:live",
         "test:security": "vitest run tests/security && tsx scripts/security-audit.ts",
         "test:visual": "playwright test --config e2e/playwright.config.ts --grep @visual --project=chromium-desktop --project=mobile-chrome",
         "typecheck": "turbo run typecheck"

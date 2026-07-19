@@ -16,6 +16,7 @@ describe('render fixture configuration', () => {
                     {
                         id: 'example',
                         label: 'Example',
+                        supportLevel: 'supported',
                         wikiBaseUrl: 'https://en.wikipedia.org',
                         apiUrl: 'https://en.wikipedia.org/w/api.php',
                         title: 'Example',

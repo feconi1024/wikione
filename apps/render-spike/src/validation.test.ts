@@ -7,6 +7,7 @@ import { validateManifest } from './validation.js';
 const fixture: RenderFixture = {
     id: 'media',
     label: 'Media',
+    supportLevel: 'controlled',
     wikiBaseUrl: 'https://en.wikipedia.org',
     apiUrl: 'https://en.wikipedia.org/w/api.php',
     title: 'Sandbox',
@@ -28,6 +29,7 @@ describe('live fidelity validation', () => {
                 {
                     id: 'media',
                     label: 'Media',
+                    supportLevel: 'controlled',
                     wikiBaseUrl: fixture.wikiBaseUrl,
                     apiUrl: fixture.apiUrl,
                     title: fixture.title,

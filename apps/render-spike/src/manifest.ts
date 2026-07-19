@@ -14,6 +14,7 @@ const featureSummarySchema = z.object({
 export const renderResultSchema = z.object({
     id: z.string(),
     label: z.string(),
+    supportLevel: z.enum(['supported', 'compatibility', 'controlled']),
     wikiBaseUrl: z.url(),
     apiUrl: z.url(),
     title: z.string(),

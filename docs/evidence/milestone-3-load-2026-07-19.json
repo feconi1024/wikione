@@ -1,0 +1,86 @@
+{
+    "schemaVersion": 1,
+    "generatedAt": "2026-07-19T14:06:57.786Z",
+    "configuration": {
+        "concurrency": 8,
+        "durationSeconds": 8,
+        "maximumErrorRate": 0,
+        "p95BudgetMilliseconds": 750,
+        "p99BudgetMilliseconds": 1500,
+        "requestTimeoutMilliseconds": 5000
+    },
+    "aggregate": {
+        "errorRate": 0,
+        "errors": 0,
+        "p95Milliseconds": 4.99,
+        "p99Milliseconds": 7.48,
+        "requests": 22274,
+        "requestsPerSecond": 2784.25
+    },
+    "scenarios": [
+        {
+            "name": "api-liveness",
+            "requests": 3182,
+            "errors": 0,
+            "errorRate": 0,
+            "p50Milliseconds": 2.73,
+            "p95Milliseconds": 5.01,
+            "p99Milliseconds": 6.9
+        },
+        {
+            "name": "api-readiness",
+            "requests": 3183,
+            "errors": 0,
+            "errorRate": 0,
+            "p50Milliseconds": 3.03,
+            "p95Milliseconds": 6.17,
+            "p99Milliseconds": 8.49
+        },
+        {
+            "name": "auth-availability",
+            "requests": 3181,
+            "errors": 0,
+            "errorRate": 0,
+            "p50Milliseconds": 2.5,
+            "p95Milliseconds": 4.48,
+            "p99Milliseconds": 6.69
+        },
+        {
+            "name": "openapi-document",
+            "requests": 3182,
+            "errors": 0,
+            "errorRate": 0,
+            "p50Milliseconds": 3,
+            "p95Milliseconds": 5.53,
+            "p99Milliseconds": 8.24
+        },
+        {
+            "name": "preview-liveness",
+            "requests": 3183,
+            "errors": 0,
+            "errorRate": 0,
+            "p50Milliseconds": 2.46,
+            "p95Milliseconds": 4.09,
+            "p99Milliseconds": 6.11
+        },
+        {
+            "name": "preview-readiness",
+            "requests": 3182,
+            "errors": 0,
+            "errorRate": 0,
+            "p50Milliseconds": 2.47,
+            "p95Milliseconds": 4.03,
+            "p99Milliseconds": 6.53
+        },
+        {
+            "name": "preview-miss",
+            "requests": 3181,
+            "errors": 0,
+            "errorRate": 0,
+            "p50Milliseconds": 2.54,
+            "p95Milliseconds": 4.41,
+            "p99Milliseconds": 6.82
+        }
+    ],
+    "failures": []
+}

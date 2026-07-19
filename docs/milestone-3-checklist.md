@@ -11,13 +11,16 @@ the cited artifact or external state proves the complete requirement.
       keyboard flow, responsive mode, and the isolated preview document.
 - [ ] Security tests and CI scans cover application, dependencies, secrets,
       licenses, OCI images, headers, isolation boundaries, and disabled writes.
-- [ ] Load/resilience thresholds pass against an isolated release stack without
-      sending load to Wikimedia.
-- [ ] Chromium, Firefox, WebKit, mobile Chromium, and mobile WebKit pass the
-      supported browser suite.
-- [ ] Reviewed desktop/mobile visual baselines pass without unexplained drift.
-- [ ] MediaWiki contract fixtures and the read-only live compatibility matrix
-      pass for every supported target.
+- [x] Load/resilience thresholds pass against an isolated release stack without
+      sending load to Wikimedia. See the [HTTP](evidence/milestone-3-load-2026-07-19.json)
+      and [password](evidence/milestone-3-password-load-2026-07-19.json) reports.
+- [x] Chromium, Firefox, WebKit, mobile Chromium, and mobile WebKit pass the
+      [supported browser suite](evidence/milestone-3-browser-2026-07-19.md).
+- [x] Reviewed desktop/mobile visual baselines pass without unexplained drift,
+      as recorded in the [browser evidence](evidence/milestone-3-browser-2026-07-19.md).
+- [x] MediaWiki contract fixtures and the read-only live compatibility matrix
+      pass for every supported target in the
+      [compatibility report](evidence/milestone-3-compatibility-2026-07-19.json).
 
 ## Deployment and operations
 

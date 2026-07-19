@@ -24,6 +24,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 - PostgreSQL-backed account persistence and encrypted Redis sessions in Compose,
   including health-gated startup, durable account storage, and explicit
   development-only key/cookie configuration.
+- Browser-safe publishing core with bounded semantic line review, three-way
+  merge/conflict resolution, create/update safeguards, post-write verification,
+  disabled production publisher, and typed abuse-filter/CAPTCHA/error mapping.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

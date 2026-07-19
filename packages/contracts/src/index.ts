@@ -323,6 +323,7 @@ export type AccountDeletionRequest = z.infer<
 >;
 export type AuthenticationSuccess = z.infer<typeof authenticationSuccessSchema>;
 export type PublishRequest = z.infer<typeof publishRequestSchema>;
+export type WatchlistBehavior = z.infer<typeof watchlistBehaviorSchema>;
 export type PublishResult = z.infer<typeof publishResultSchema>;
 export type RevisionCheckRequest = z.infer<typeof revisionCheckRequestSchema>;
 export type RevisionCheckResult = z.infer<typeof revisionCheckResultSchema>;

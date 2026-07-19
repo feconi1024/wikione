@@ -39,6 +39,14 @@ describe('Milestone 1 API', () => {
             method: 'GET',
             url: '/healthz',
         });
+        const livenessResponse = await app.inject({
+            method: 'GET',
+            url: '/livez',
+        });
+        const readinessResponse = await app.inject({
+            method: 'GET',
+            url: '/readyz',
+        });
         const documentResponse = await app.inject({
             method: 'GET',
             url: '/openapi.json',
@@ -49,10 +57,20 @@ describe('Milestone 1 API', () => {
         }>();
 
         expect(healthResponse.json()).toEqual({ status: 'ok' });
+        expect(livenessResponse.json()).toEqual({ status: 'ok' });
+        expect(readinessResponse.json()).toEqual({
+            status: 'ready',
+            checks: {
+                'authentication-store': 'ready',
+                'preview-store': 'ready',
+            },
+        });
         expect(document.openapi).toBe('3.1.0');
         expect(Object.keys(document.paths)).toEqual(
             expect.arrayContaining([
                 '/healthz',
+                '/livez',
+                '/readyz',
                 '/v1/meta/contracts',
                 '/v1/wikis',
                 '/v1/pages/source',
@@ -60,6 +78,26 @@ describe('Milestone 1 API', () => {
                 '/v1/auth/availability',
             ]),
         );
+    });
+
+    it('reports dependency failure without exposing the underlying error', async () => {
+        const store = new MemoryPreviewStore();
+        vi.spyOn(store, 'ready').mockRejectedValue(
+            new Error('redis://secret.internal:6379 failed'),
+        );
+        const app = await createTestApi({}, undefined, store);
+        const response = await app.inject({ method: 'GET', url: '/readyz' });
+
+        expect(response.statusCode).toBe(503);
+        expect(response.headers['retry-after']).toBe('5');
+        expect(response.json()).toEqual({
+            status: 'not-ready',
+            checks: {
+                'authentication-store': 'ready',
+                'preview-store': 'failed',
+            },
+        });
+        expect(response.body).not.toContain('secret.internal');
     });
 
     it('lists only fixed supported wiki descriptors', async () => {

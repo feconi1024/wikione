@@ -41,6 +41,12 @@ export class RedisSessionRepository implements SessionRepository {
         return new RedisSessionRepository(client, keyRing);
     }
 
+    public async ready(): Promise<void> {
+        if ((await this.#client.ping()) !== 'PONG') {
+            throw new Error('Redis session readiness check failed.');
+        }
+    }
+
     public async save(
         token: string,
         payload: SessionPayload,

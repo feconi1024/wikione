@@ -181,6 +181,19 @@ export async function buildApi(
     app.addHook('onSend', async (_request, reply) => {
         setApiSecurityHeaders(reply);
     });
+    app.addHook('onResponse', async (request, reply) => {
+        request.log.info(
+            {
+                durationMs: Number(reply.elapsedTime.toFixed(2)),
+                event: 'request-complete',
+                method: request.method,
+                requestId: request.id,
+                route: request.routeOptions.url,
+                statusCode: reply.statusCode,
+            },
+            'Request completed.',
+        );
+    });
     app.addHook('onClose', async () => {
         await Promise.all([previewStore.close(), authentication.close()]);
     });
@@ -215,26 +228,70 @@ export async function buildApi(
         );
     });
 
-    app.get(
-        '/healthz',
-        {
-            schema: {
-                tags: ['meta'],
-                summary: 'Check service health',
-                description: 'Unauthenticated liveness endpoint.',
-                response: {
-                    200: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['status'],
-                        properties: {
-                            status: { type: 'string', const: 'ok' },
+    for (const path of ['/healthz', '/livez'] as const) {
+        app.get(
+            path,
+            {
+                schema: {
+                    tags: ['meta'],
+                    summary: 'Check service liveness',
+                    description:
+                        'Unauthenticated process liveness endpoint. It does not contact PostgreSQL, Redis, or Wikimedia.',
+                    response: {
+                        200: {
+                            type: 'object',
+                            additionalProperties: false,
+                            required: ['status'],
+                            properties: {
+                                status: { type: 'string', const: 'ok' },
+                            },
                         },
                     },
                 },
             },
+            () => ({ status: 'ok' as const }),
+        );
+    }
+
+    app.get(
+        '/readyz',
+        {
+            schema: {
+                tags: ['meta'],
+                summary: 'Check service readiness',
+                description:
+                    'Checks account/session and preview-store dependencies without contacting Wikimedia.',
+                response: {
+                    200: readinessResponseSchema('ready'),
+                    503: readinessResponseSchema('not-ready'),
+                },
+            },
         },
-        () => ({ status: 'ok' as const }),
+        async (request, reply) => {
+            const readiness = await runReadinessChecks([
+                {
+                    name: 'authentication-store',
+                    check: async () => authentication.ready(),
+                },
+                {
+                    name: 'preview-store',
+                    check: async () => previewStore.ready(),
+                },
+            ]);
+            if (!readiness.ready) {
+                request.log.warn(
+                    { checks: readiness.checks, event: 'readiness-failed' },
+                    'A required API dependency is unavailable.',
+                );
+                reply.header('Retry-After', '5').status(503);
+            }
+            return {
+                status: readiness.ready
+                    ? ('ready' as const)
+                    : ('not-ready' as const),
+                checks: readiness.checks,
+            };
+        },
     );
 
     app.get(
@@ -925,6 +982,52 @@ function setApiSecurityHeaders(reply: FastifyReply): void {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('X-Frame-Options', 'DENY');
     reply.header('X-XSS-Protection', '0');
+}
+
+interface ReadinessCheck {
+    readonly name: string;
+    readonly check: () => Promise<void>;
+}
+
+function readinessResponseSchema(status: 'ready' | 'not-ready') {
+    return {
+        type: 'object',
+        additionalProperties: false,
+        required: ['status', 'checks'],
+        properties: {
+            status: { type: 'string', const: status },
+            checks: {
+                type: 'object',
+                additionalProperties: {
+                    type: 'string',
+                    enum: ['ready', 'failed'],
+                },
+            },
+        },
+    } as const;
+}
+
+async function runReadinessChecks(checks: readonly ReadinessCheck[]): Promise<{
+    readonly ready: boolean;
+    readonly checks: Readonly<Record<string, 'ready' | 'failed'>>;
+}> {
+    const results = await Promise.all(
+        checks.map(async ({ check, name }) => {
+            try {
+                await check();
+                return [name, 'ready'] as const;
+            } catch {
+                return [name, 'failed'] as const;
+            }
+        }),
+    );
+    const statuses = Object.fromEntries(results) as Readonly<
+        Record<string, 'ready' | 'failed'>
+    >;
+    return {
+        ready: Object.values(statuses).every((status) => status === 'ready'),
+        checks: statuses,
+    };
 }
 
 function normalizeStatusCode(value: number | undefined): number {

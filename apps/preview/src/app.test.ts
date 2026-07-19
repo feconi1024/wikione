@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MemoryPreviewStore } from '@wikione/preview-store';
 
@@ -15,6 +15,40 @@ afterEach(async () => {
 });
 
 describe('isolated preview origin', () => {
+    it('separates process liveness from preview-store readiness', async () => {
+        const store = new MemoryPreviewStore();
+        const app = createTestApp(store);
+        const [health, live, ready] = await Promise.all([
+            app.inject({ method: 'GET', url: '/healthz' }),
+            app.inject({ method: 'GET', url: '/livez' }),
+            app.inject({ method: 'GET', url: '/readyz' }),
+        ]);
+
+        expect(health.json()).toEqual({ status: 'ok' });
+        expect(live.json()).toEqual({ status: 'ok' });
+        expect(ready.json()).toEqual({
+            status: 'ready',
+            checks: { 'preview-store': 'ready' },
+        });
+    });
+
+    it('returns a generic not-ready response when Redis is unavailable', async () => {
+        const store = new MemoryPreviewStore();
+        vi.spyOn(store, 'ready').mockRejectedValue(
+            new Error('rediss://secret.internal:6379 failed'),
+        );
+        const app = createTestApp(store);
+        const response = await app.inject({ method: 'GET', url: '/readyz' });
+
+        expect(response.statusCode).toBe(503);
+        expect(response.headers['retry-after']).toBe('5');
+        expect(response.json()).toEqual({
+            status: 'not-ready',
+            checks: { 'preview-store': 'failed' },
+        });
+        expect(response.body).not.toContain('secret.internal');
+    });
+
     it('serves an opaque bundle with isolation and no credential headers', async () => {
         const store = new MemoryPreviewStore();
         await store.put(

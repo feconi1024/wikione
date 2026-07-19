@@ -32,6 +32,12 @@ export class RedisPreviewStore implements PreviewStore {
         return new RedisPreviewStore(client);
     }
 
+    public async ready(): Promise<void> {
+        if ((await this.#client.ping()) !== 'PONG') {
+            throw new Error('Redis preview readiness check failed.');
+        }
+    }
+
     public async put(
         id: string,
         bundle: PreviewBundle,

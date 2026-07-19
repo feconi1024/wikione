@@ -41,16 +41,54 @@ export function buildPreviewApp(
     app.addHook('onSend', async (_request, reply) => {
         setCommonSecurityHeaders(reply);
     });
+    app.addHook('onResponse', async (request, reply) => {
+        request.log.info(
+            {
+                durationMs: Number(reply.elapsedTime.toFixed(2)),
+                event: 'request-complete',
+                method: request.method,
+                requestId: request.id,
+                route: request.routeOptions.url,
+                statusCode: reply.statusCode,
+            },
+            'Request completed.',
+        );
+    });
     app.addHook('onClose', async () => {
         await previewStore.close();
     });
 
-    app.get('/healthz', async (_request, reply) => {
-        reply.header(
-            'Content-Security-Policy',
-            `default-src 'none'; frame-ancestors ${frameAncestors}`,
-        );
-        return { status: 'ok' as const };
+    for (const path of ['/healthz', '/livez'] as const) {
+        app.get(path, async (_request, reply) => {
+            setNonDocumentPolicy(reply, frameAncestors);
+            return { status: 'ok' as const };
+        });
+    }
+
+    app.get('/readyz', async (request, reply) => {
+        setNonDocumentPolicy(reply, frameAncestors);
+        try {
+            await previewStore.ready();
+            return {
+                status: 'ready' as const,
+                checks: { 'preview-store': 'ready' as const },
+            };
+        } catch {
+            request.log.warn(
+                {
+                    checks: { 'preview-store': 'failed' },
+                    event: 'readiness-failed',
+                },
+                'The preview store is unavailable.',
+            );
+            return reply
+                .header('Retry-After', '5')
+                .status(503)
+                .send({
+                    status: 'not-ready' as const,
+                    checks: { 'preview-store': 'failed' as const },
+                });
+        }
     });
 
     app.get<{ Params: { id: string } }>(
@@ -82,10 +120,7 @@ export function buildPreviewApp(
     });
 
     app.setErrorHandler(async (_error, _request, reply) => {
-        reply.header(
-            'Content-Security-Policy',
-            `default-src 'none'; frame-ancestors ${frameAncestors}`,
-        );
+        setNonDocumentPolicy(reply, frameAncestors);
         await reply.status(500).send({
             code: 'preview-unavailable',
             message: 'The preview is temporarily unavailable.',
@@ -115,14 +150,21 @@ async function sendUnavailable(
     reply: FastifyReply,
     frameAncestors: string,
 ): Promise<void> {
-    reply.header(
-        'Content-Security-Policy',
-        `default-src 'none'; frame-ancestors ${frameAncestors}`,
-    );
+    setNonDocumentPolicy(reply, frameAncestors);
     await reply.status(404).send({
         code: 'preview-unavailable',
         message: 'This preview is invalid, expired, or unavailable.',
     });
+}
+
+function setNonDocumentPolicy(
+    reply: FastifyReply,
+    frameAncestors: string,
+): void {
+    reply.header(
+        'Content-Security-Policy',
+        `default-src 'none'; frame-ancestors ${frameAncestors}`,
+    );
 }
 
 function normalizeOrigins(values: readonly string[]): readonly string[] {

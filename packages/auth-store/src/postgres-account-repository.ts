@@ -39,6 +39,10 @@ export class PostgresAccountRepository implements AccountRepository {
         return repository;
     }
 
+    public async ready(): Promise<void> {
+        await this.#sql`SELECT 1 AS ready`;
+    }
+
     public async migrate(): Promise<void> {
         await this.#sql.begin(async (sql) => {
             await sql`

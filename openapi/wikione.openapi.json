@@ -19,9 +19,9 @@
     "paths": {
         "/healthz": {
             "get": {
-                "summary": "Check service health",
+                "summary": "Check service liveness",
                 "tags": ["meta"],
-                "description": "Unauthenticated liveness endpoint.",
+                "description": "Unauthenticated process liveness endpoint. It does not contact PostgreSQL, Redis, or Wikimedia.",
                 "responses": {
                     "200": {
                         "description": "Default Response",
@@ -35,6 +35,92 @@
                                         "status": {
                                             "type": "string",
                                             "enum": ["ok"]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/livez": {
+            "get": {
+                "summary": "Check service liveness",
+                "tags": ["meta"],
+                "description": "Unauthenticated process liveness endpoint. It does not contact PostgreSQL, Redis, or Wikimedia.",
+                "responses": {
+                    "200": {
+                        "description": "Default Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["status"],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/readyz": {
+            "get": {
+                "summary": "Check service readiness",
+                "tags": ["meta"],
+                "description": "Checks account/session and preview-store dependencies without contacting Wikimedia.",
+                "responses": {
+                    "200": {
+                        "description": "Default Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["status", "checks"],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ready"]
+                                        },
+                                        "checks": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string",
+                                                "enum": ["ready", "failed"]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Default Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["status", "checks"],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["not-ready"]
+                                        },
+                                        "checks": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string",
+                                                "enum": ["ready", "failed"]
+                                            }
                                         }
                                     }
                                 }

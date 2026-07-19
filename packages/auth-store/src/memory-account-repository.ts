@@ -10,6 +10,10 @@ export class AccountConflictError extends Error {
 export class MemoryAccountRepository implements AccountRepository {
     readonly #accounts = new Map<string, AccountRecord>();
 
+    public ready(): Promise<void> {
+        return Promise.resolve();
+    }
+
     public async create(account: AccountRecord): Promise<AccountRecord> {
         if (await this.findByNormalizedUsername(account.normalizedUsername)) {
             throw new AccountConflictError();

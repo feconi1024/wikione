@@ -17,6 +17,8 @@
 - A deterministic target-API contract gate and sequential anonymous live
   compatibility report covering the supported, RTL, and controlled-media
   fixtures without retaining source text.
+- Dependency-aware liveness and readiness probes for the API and isolated
+  preview service, including bounded load coverage and safe failure responses.
 - Browser coverage for composed multilingual input, real HttpOnly cookie
   storage/removal, superseded preview cancellation, complete splitter keys,
   and every public-beta review/error accessibility state.
@@ -36,6 +38,9 @@
 - MediaWiki transport now validates response envelopes and content types,
   rejects redirects, bounds overload retries and `Retry-After`, normalizes
   legacy API shapes, and never exposes upstream response or source text.
+- API and preview request telemetry now records only bounded operational
+  metadata; request bodies, wikitext, credentials, and client addresses remain
+  outside the structured completion logs.
 
 All notable changes to WikiOne are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

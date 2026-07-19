@@ -46,6 +46,7 @@ assertSafeTarget(previewBaseUrl);
 
 const scenarios: readonly Scenario[] = [
     { name: 'api-liveness', url: new URL('/healthz', apiBaseUrl), status: 200 },
+    { name: 'api-readiness', url: new URL('/readyz', apiBaseUrl), status: 200 },
     {
         name: 'auth-availability',
         url: new URL('/v1/auth/availability', apiBaseUrl),
@@ -59,6 +60,11 @@ const scenarios: readonly Scenario[] = [
     {
         name: 'preview-liveness',
         url: new URL('/healthz', previewBaseUrl),
+        status: 200,
+    },
+    {
+        name: 'preview-readiness',
+        url: new URL('/readyz', previewBaseUrl),
         status: 200,
     },
     {

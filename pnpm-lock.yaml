@@ -137,6 +137,9 @@ importers:
       '@wikione/editor-core':
         specifier: workspace:*
         version: link:../../packages/editor-core
+      '@wikione/publishing-core':
+        specifier: workspace:*
+        version: link:../../packages/publishing-core
       '@wikione/wikitext-editor':
         specifier: workspace:*
         version: link:../../packages/wikitext-editor

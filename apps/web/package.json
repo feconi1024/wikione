@@ -16,6 +16,7 @@
         "@codemirror/view": "^6.0.0",
         "@wikione/contracts": "workspace:*",
         "@wikione/editor-core": "workspace:*",
+        "@wikione/publishing-core": "workspace:*",
         "@wikione/wikitext-editor": "workspace:*",
         "vue": "^3.0.0"
     },

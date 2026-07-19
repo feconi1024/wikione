@@ -4,6 +4,7 @@ import type {
     PageSource,
     PreviewRequest,
     PreviewWarning,
+    SessionStatus,
     WikiDescriptor,
 } from '@wikione/contracts';
 import {
@@ -27,7 +28,12 @@ import {
 } from 'vue';
 
 import { WikiOneApiClient } from './api.js';
+import AccountPage from './components/AccountPage.vue';
+import AuthDialog from './components/AuthDialog.vue';
+import ConnectedAppsPage from './components/ConnectedAppsPage.vue';
 import EditorToolbar from './components/EditorToolbar.vue';
+import PrivacyPage from './components/PrivacyPage.vue';
+import PublishReviewDialog from './components/PublishReviewDialog.vue';
 import WikitextEditor from './components/WikitextEditor.vue';
 import { IndexedDbDraftStore } from './draft-store.js';
 
@@ -38,6 +44,7 @@ interface WikitextEditorHandle {
 
 type DraftStatus = 'idle' | 'saving' | 'saved' | 'error';
 type MobilePanel = 'source' | 'preview';
+type AppRoute = 'editor' | 'account' | 'connected-apps' | 'privacy';
 
 const fallbackWiki: WikiDescriptor = {
     id: 'en-wikipedia',
@@ -87,6 +94,19 @@ const clientRevision = ref(0);
 const splitPercent = ref(50);
 const mobilePanel = ref<MobilePanel>('source');
 const analysis = shallowRef<WikitextAnalysis>(analyzeWikitext(source.value));
+const session = ref<SessionStatus>({
+    authenticated: false,
+    wikimedia: {
+        connected: false,
+        reason: 'oauth-registration-pending',
+        message: 'Wikimedia OAuth approval is pending.',
+    },
+});
+const route = ref<AppRoute>(routeFromPath(window.location.pathname));
+const authOpen = ref(false);
+const reviewOpen = ref(false);
+const accountMenuOpen = ref(false);
+const reviewButton = ref<HTMLButtonElement>();
 let initialized = false;
 let draftTimer: ReturnType<typeof setTimeout> | undefined;
 let analysisTimer: ReturnType<typeof setTimeout> | undefined;
@@ -158,12 +178,18 @@ watch([source, title, wikiId], () => {
 });
 
 onMounted(async () => {
-    await Promise.all([loadWikiRegistry(), restoreInitialDraft()]);
+    window.addEventListener('popstate', syncRoute);
+    await Promise.all([
+        loadWikiRegistry(),
+        restoreInitialDraft(),
+        loadSession(),
+    ]);
     initialized = true;
     schedulePreview();
 });
 
 onBeforeUnmount(() => {
+    window.removeEventListener('popstate', syncRoute);
     coordinator.dispose();
     if (draftTimer !== undefined) {
         clearTimeout(draftTimer);
@@ -172,6 +198,85 @@ onBeforeUnmount(() => {
         clearTimeout(analysisTimer);
     }
 });
+
+async function loadSession(): Promise<void> {
+    try {
+        session.value = await api.getSession();
+    } catch {
+        appMessage.value =
+            'Account status could not be loaded. Editing and local drafts still work.';
+    }
+}
+
+function updateSession(value: SessionStatus): void {
+    session.value = value;
+}
+
+async function refreshAccountSession(): Promise<void> {
+    if (!session.value.authenticated) {
+        return;
+    }
+    try {
+        const result = await api.refresh(session.value.csrfToken);
+        session.value = result.session;
+        accountMenuOpen.value = false;
+        appMessage.value = 'WikiOne session refreshed.';
+    } catch (error: unknown) {
+        session.value = {
+            authenticated: false,
+            wikimedia: session.value.wikimedia,
+        };
+        appMessage.value = safeMessage(error, 'Your WikiOne session expired.');
+    }
+}
+
+async function signOut(): Promise<void> {
+    if (!session.value.authenticated) {
+        return;
+    }
+    try {
+        await api.logout(session.value.csrfToken);
+    } catch {
+        // Clearing local identity is still safe if the session already expired.
+    }
+    session.value = {
+        authenticated: false,
+        wikimedia: session.value.wikimedia,
+    };
+    accountMenuOpen.value = false;
+    navigate('/');
+}
+
+function navigate(path: string): void {
+    const nextRoute = routeFromPath(path);
+    if (window.location.pathname !== path) {
+        window.history.pushState({}, '', path);
+    }
+    route.value = nextRoute;
+    accountMenuOpen.value = false;
+}
+
+function syncRoute(): void {
+    route.value = routeFromPath(window.location.pathname);
+    accountMenuOpen.value = false;
+}
+
+function applyResolvedSource(value: {
+    readonly source: string;
+    readonly baseSource: string;
+    readonly baseRevision?: BaseRevision;
+}): void {
+    source.value = value.source;
+    baseSource.value = value.baseSource;
+    baseRevision.value = value.baseRevision;
+    pageMessage.value =
+        'Conflict resolution applied locally. Review the recompiled page before checking again.';
+}
+
+function closeReview(): void {
+    reviewOpen.value = false;
+    void nextTick(() => reviewButton.value?.focus());
+}
 
 async function loadWikiRegistry(): Promise<void> {
     try {
@@ -424,12 +529,30 @@ function safeMessage(error: unknown, fallback: string): string {
 function clamp(value: number, minimum: number, maximum: number): number {
     return Math.min(Math.max(value, minimum), maximum);
 }
+
+function routeFromPath(path: string): AppRoute {
+    switch (path.replace(/\/+$/u, '') || '/') {
+        case '/account':
+            return 'account';
+        case '/connected-apps':
+            return 'connected-apps';
+        case '/privacy':
+            return 'privacy';
+        default:
+            return 'editor';
+    }
+}
 </script>
 
 <template>
     <div class="app-shell">
         <header class="topbar">
-            <a class="brand" href="/" aria-label="WikiOne editor home">
+            <a
+                class="brand"
+                href="/"
+                aria-label="WikiOne editor home"
+                @click.prevent="navigate('/')"
+            >
                 <span class="brand-mark" aria-hidden="true">W</span>
                 <span class="brand-copy">
                     <strong>WikiOne</strong>
@@ -437,7 +560,7 @@ function clamp(value: number, minimum: number, maximum: number): number {
                 </span>
             </a>
 
-            <div class="document-controls">
+            <div v-if="route === 'editor'" class="document-controls">
                 <label class="field field--wiki">
                     <span>Wiki</span>
                     <select v-model="wikiId" aria-label="Target wiki">
@@ -472,18 +595,90 @@ function clamp(value: number, minimum: number, maximum: number): number {
                 </button>
             </div>
 
-            <button
-                class="button auth-placeholder"
-                type="button"
-                disabled
-                title="Sign-in will be enabled after Wikimedia OAuth registration"
-            >
-                Sign in unavailable
-            </button>
+            <div class="topbar-actions">
+                <button
+                    v-if="route === 'editor'"
+                    ref="reviewButton"
+                    class="button"
+                    type="button"
+                    :disabled="!title.trim()"
+                    @click="reviewOpen = true"
+                >
+                    Review changes
+                </button>
+                <button
+                    v-if="!session.authenticated"
+                    class="button button--primary"
+                    type="button"
+                    @click="authOpen = true"
+                >
+                    Sign in
+                </button>
+                <div v-else class="account-menu">
+                    <button
+                        class="identity-button"
+                        type="button"
+                        :aria-expanded="accountMenuOpen"
+                        aria-haspopup="menu"
+                        @click="accountMenuOpen = !accountMenuOpen"
+                    >
+                        <span aria-hidden="true">{{
+                            session.account.displayName
+                                .slice(0, 1)
+                                .toUpperCase()
+                        }}</span>
+                        <span>{{ session.account.displayName }}</span>
+                    </button>
+                    <div
+                        v-if="accountMenuOpen"
+                        class="account-dropdown"
+                        role="menu"
+                    >
+                        <div>
+                            <strong>{{ session.account.displayName }}</strong>
+                            <small
+                                >@{{ session.account.username }} ·
+                                WikiOne</small
+                            >
+                        </div>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            @click="navigate('/account')"
+                        >
+                            Account and security
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            @click="navigate('/connected-apps')"
+                        >
+                            Connected apps
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            @click="navigate('/privacy')"
+                        >
+                            Privacy
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            @click="refreshAccountSession"
+                        >
+                            Refresh session
+                        </button>
+                        <button type="button" role="menuitem" @click="signOut">
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <div
-            v-if="appMessage || pageMessage"
+            v-if="route === 'editor' && (appMessage || pageMessage)"
             class="notice-strip"
             role="status"
         >
@@ -498,7 +693,11 @@ function clamp(value: number, minimum: number, maximum: number): number {
             </span>
         </div>
 
-        <nav class="mobile-tabs" aria-label="Editor view">
+        <nav
+            v-if="route === 'editor'"
+            class="mobile-tabs"
+            aria-label="Editor view"
+        >
             <button
                 type="button"
                 :aria-pressed="mobilePanel === 'source'"
@@ -516,6 +715,7 @@ function clamp(value: number, minimum: number, maximum: number): number {
         </nav>
 
         <main
+            v-if="route === 'editor'"
             ref="workspace"
             class="workspace"
             :class="`workspace--mobile-${mobilePanel}`"
@@ -696,13 +896,64 @@ function clamp(value: number, minimum: number, maximum: number): number {
             </section>
         </main>
 
-        <footer class="privacy-bar">
+        <AccountPage
+            v-else-if="route === 'account' && session.authenticated"
+            :session="session"
+            @session="updateSession"
+            @signed-out="signOut"
+            @navigate="navigate"
+        />
+        <main
+            v-else-if="route === 'account'"
+            class="settings-page settings-empty"
+        >
+            <span class="eyebrow">WikiOne account</span>
+            <h1>Sign in to manage your account</h1>
+            <p>
+                Account and security controls are available after signing in to
+                WikiOne. This does not connect a Wikimedia account.
+            </p>
+            <button
+                class="button button--primary"
+                type="button"
+                @click="authOpen = true"
+            >
+                Sign in to WikiOne
+            </button>
+        </main>
+        <ConnectedAppsPage
+            v-else-if="route === 'connected-apps'"
+            :session="session"
+            @navigate="navigate"
+        />
+        <PrivacyPage v-else @navigate="navigate" />
+
+        <footer v-if="route === 'editor'" class="privacy-bar">
             <span>{{ draftMessage }}</span>
             <span>
                 Preview source is sent to {{ selectedWiki.displayName }} for
-                parsing. Authentication and publishing are not enabled yet.
+                parsing. WikiOne accounts are separate; Wikimedia publishing is
+                awaiting OAuth approval.
             </span>
         </footer>
+
+        <AuthDialog
+            :open="authOpen"
+            @close="authOpen = false"
+            @authenticated="updateSession"
+        />
+        <PublishReviewDialog
+            :open="reviewOpen"
+            :wiki-id="wikiId"
+            :wiki-name="selectedWiki.displayName"
+            :title="title"
+            :source="source"
+            :base-source="baseSource"
+            :base-revision="baseRevision"
+            :preview-current="previewStatus.phase === 'ready'"
+            @close="closeReview"
+            @resolved="applyResolvedSource"
+        />
 
         <div class="visually-hidden" aria-live="polite">
             {{ previewStatusLabel }}. {{ draftStatusLabel }}.

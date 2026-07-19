@@ -33,6 +33,16 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Local drafts now retain the exact base wikitext alongside revision metadata,
   enabling lossless three-way merge while remaining backward compatible with
   Milestone 1 draft records.
+- Route-aware Vue account experience with registration/sign-in dialog, identity
+  menu, refresh/logout, account security and deletion controls, connected-apps
+  status, and an implementation-aligned privacy page.
+- Accessible publish-review sheet with semantic text diff, required summary,
+  minor/watchlist controls, preview freshness gate, latest-revision readiness,
+  explicit three-way conflict choices, provider-error guidance, and a disabled
+  approval-pending Wikimedia action.
+- Browser coverage for first-party identity separation, account profile/logout,
+  semantic review, zero write requests, conflict resolution, Escape/focus
+  behavior, responsive privacy/review views, and serious accessibility issues.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

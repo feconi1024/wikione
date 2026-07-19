@@ -1,7 +1,11 @@
 {
     "extends": "../tsconfig.base.json",
     "compilerOptions": {
+        "baseUrl": "..",
         "noEmit": true,
+        "paths": {
+            "@wikione/contracts": ["packages/contracts/src/index.ts"]
+        },
         "types": ["node", "@playwright/test"]
     },
     "include": ["*.ts"]

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Milestone 3 hardening/public-beta plan and evidence-first completion
+  checklist, including an explicit MIT/GPL governance decision gate.
+
 All notable changes to WikiOne are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 

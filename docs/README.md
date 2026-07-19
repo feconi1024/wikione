@@ -24,6 +24,10 @@ This directory contains the product and engineering record for WikiOne.
   publishing-preparation, external-gate, and acceptance scope.
 - [Milestone 2 checklist](milestone-2-checklist.md) maps that scope to current
   code, tests, and the remaining external approval gate.
+- [Milestone 3 plan](milestone-3-plan.md) defines the final hardening,
+  deployment, operations, and public-release scope before MVP.
+- [Milestone 3 checklist](milestone-3-checklist.md) is the evidence-first public
+  beta release gate.
 - [Milestone 1 checklist](milestone-1-checklist.md) maps every deliverable to
   current evidence and verification.
 - [Milestone 0 checklist](milestone-0-checklist.md) preserves the preceding

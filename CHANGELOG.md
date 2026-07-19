@@ -15,6 +15,9 @@ All notable changes to WikiOne are documented in this file. The format follows
   preparation and revision-check contracts, and normalized publish failures.
 - Independently tested scrypt password hashing, Unicode username normalization,
   opaque token hashing, AES-256-GCM session encryption, and CSRF comparison.
+- First-party authentication domain service with registration, login, session
+  rotation/replay handling, logout, logout-all, profile/password updates, and
+  account deletion plus PostgreSQL/Redis and in-memory repository adapters.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

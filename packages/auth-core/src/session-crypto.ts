@@ -33,8 +33,17 @@ export function hashOpaqueToken(
     keyRing: SessionKeyRing,
 ): string {
     assertOpaqueToken(token);
+    return hashLookupValue(token, keyRing);
+}
+
+/** HMACs non-secret index material without imposing the browser-token shape. */
+export function hashLookupValue(
+    value: string,
+    keyRing: SessionKeyRing,
+): string {
+    assertKeyRing(keyRing);
     return createHmac('sha256', keyRing.lookupHmacKey)
-        .update(token, 'utf8')
+        .update(value, 'utf8')
         .digest('base64url');
 }
 

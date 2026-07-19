@@ -47,6 +47,7 @@ import { createPreviewDocument } from '@wikione/preview-document';
 import { MemoryPreviewStore, type PreviewStore } from '@wikione/preview-store';
 
 import { registerAuthRoutes } from './auth-routes.js';
+import { openApiSchemas, standardErrorResponses } from './openapi.js';
 import { findSupportedWiki, supportedWikis } from './wiki-registry.js';
 
 const defaultPreviewTtlMilliseconds = 120_000;
@@ -142,6 +143,17 @@ export async function buildApi(
                     'Source loading and preview compilation for the WikiOne editor.',
                 version: '0.1.0',
             },
+            components: {
+                securitySchemes: {
+                    sessionCookie: {
+                        type: 'apiKey',
+                        in: 'cookie',
+                        name: '__Host-wikione_session',
+                        description:
+                            'HttpOnly WikiOne session cookie. In local development its name is wikione_session_local.',
+                    },
+                },
+            },
             tags: [
                 { name: 'meta', description: 'Service metadata and health.' },
                 {
@@ -209,6 +221,8 @@ export async function buildApi(
         {
             schema: {
                 tags: ['meta'],
+                summary: 'Check service health',
+                description: 'Unauthenticated liveness endpoint.',
                 response: {
                     200: {
                         type: 'object',
@@ -229,6 +243,9 @@ export async function buildApi(
         {
             schema: {
                 tags: ['meta'],
+                summary: 'Read API contract metadata',
+                description:
+                    'Reports the public API version and shared contract package.',
                 response: {
                     200: {
                         type: 'object',
@@ -253,6 +270,9 @@ export async function buildApi(
         {
             schema: {
                 tags: ['editor'],
+                summary: 'List enabled wikis',
+                description:
+                    'Returns the fixed set of MediaWiki targets enabled by this deployment. The response is publicly cacheable for five minutes.',
                 response: {
                     200: {
                         type: 'array',
@@ -272,12 +292,20 @@ export async function buildApi(
         {
             schema: {
                 tags: ['editor'],
-                body: pageSourceRequestJsonSchema,
+                summary: 'Load a page source',
+                description:
+                    'Fetches the current wikitext source and base revision. A missing page is represented as exists=false with an empty source.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.pageSourceRequest,
                 response: {
-                    200: pageSourceJsonSchema,
-                    400: apiErrorJsonSchema,
-                    422: apiErrorJsonSchema,
-                    502: apiErrorJsonSchema,
+                    200: openApiSchemas.pageSource,
+                    ...standardErrorResponses(),
+                    422: openApiSchemas.errorResponse(
+                        'The target page is not wikitext.',
+                    ),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not process the source request.',
+                    ),
                 },
             },
         },
@@ -358,11 +386,17 @@ export async function buildApi(
             },
             schema: {
                 tags: ['editor'],
-                body: previewRequestJsonSchema,
+                summary: 'Compile a source preview',
+                description:
+                    'Compiles bounded wikitext through MediaWiki and returns an opaque, temporary render URL. Preview source is never published.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.previewRequest,
                 response: {
-                    200: previewResultJsonSchema,
-                    400: apiErrorJsonSchema,
-                    502: apiErrorJsonSchema,
+                    200: openApiSchemas.previewResult,
+                    ...standardErrorResponses(),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not compile the preview.',
+                    ),
                 },
             },
         },
@@ -437,8 +471,26 @@ export async function buildApi(
     app.post(
         '/v1/pages/revision-check',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
-            schema: { tags: ['editor'] },
+            schema: {
+                tags: ['editor'],
+                summary: 'Check a page revision',
+                description:
+                    'Compares an optional base revision with the latest wikitext revision before a publish review.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.revisionCheckRequest,
+                response: {
+                    200: openApiSchemas.revisionCheckResult,
+                    ...standardErrorResponses(),
+                    422: openApiSchemas.errorResponse(
+                        'The target page is not wikitext.',
+                    ),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not process the revision check.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             const parsed = revisionCheckRequestSchema.safeParse(request.body);
@@ -518,7 +570,34 @@ export async function buildApi(
 
     app.get(
         '/v1/publish/capability',
-        { schema: { tags: ['editor'] } },
+        {
+            schema: {
+                tags: ['editor'],
+                summary: 'Read publishing availability',
+                description:
+                    'Publishing is intentionally disabled until Wikimedia approves the public OAuth application.',
+                response: {
+                    200: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['available', 'reason', 'message'],
+                        properties: {
+                            available: { type: 'boolean', const: false },
+                            reason: {
+                                type: 'string',
+                                const: 'oauth-registration-pending',
+                            },
+                            message: {
+                                type: 'string',
+                                minLength: 1,
+                                maxLength: 500,
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (_request, reply) => {
             reply.header('Cache-Control', 'no-store');
             return publishCapabilitySchema.parse({
@@ -533,8 +612,26 @@ export async function buildApi(
     app.post(
         '/v1/publish/prepare',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 15, timeWindow: '1 minute' } },
-            schema: { tags: ['editor'] },
+            schema: {
+                tags: ['editor'],
+                summary: 'Prepare a reviewed publish',
+                description:
+                    'Performs a non-mutating latest-revision check and reports whether a create/update is ready or a three-way merge is required.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.publishRequest,
+                response: {
+                    200: openApiSchemas.publishPreparationResult,
+                    ...standardErrorResponses(),
+                    422: openApiSchemas.errorResponse(
+                        'The target page is not wikitext.',
+                    ),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not process the publish preparation.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             const parsed = publishPreparationRequestSchema.safeParse(
@@ -616,7 +713,23 @@ export async function buildApi(
 
     app.post(
         '/v1/publish',
-        { schema: { tags: ['editor'] } },
+        {
+            attachValidation: true,
+            schema: {
+                tags: ['editor'],
+                summary: 'Submit a publish',
+                description:
+                    'Placeholder endpoint. It never submits an edit while public Wikimedia OAuth registration is pending.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.publishRequest,
+                response: {
+                    503: openApiSchemas.errorResponse(
+                        'Wikimedia OAuth registration is pending; no edit was submitted.',
+                    ),
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (request, reply) =>
             sendError(
                 reply,
@@ -635,7 +748,33 @@ export async function buildApi(
 
     app.get(
         '/openapi.json',
-        { schema: { hide: true } },
+        {
+            schema: {
+                tags: ['meta'],
+                summary: 'Get the OpenAPI description',
+                description:
+                    "Returns this service's generated OpenAPI 3.1 document. The repository tracks the same document at openapi/wikione.openapi.json.",
+                response: {
+                    200: {
+                        type: 'object',
+                        additionalProperties: true,
+                        required: ['openapi', 'info', 'paths'],
+                        properties: {
+                            openapi: { type: 'string', const: '3.1.0' },
+                            info: {
+                                type: 'object',
+                                additionalProperties: true,
+                            },
+                            paths: {
+                                type: 'object',
+                                additionalProperties: true,
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (_request, reply) => {
             await reply.type('application/json').send(app.swagger());
         },
@@ -784,17 +923,6 @@ function readErrorStatusCode(error: unknown): number | undefined {
     return undefined;
 }
 
-const apiErrorJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['code', 'message'],
-    properties: {
-        code: { type: 'string' },
-        message: { type: 'string' },
-        requestId: { type: 'string' },
-    },
-} as const;
-
 const wikiDescriptorJsonSchema = {
     type: 'object',
     additionalProperties: false,
@@ -813,92 +941,5 @@ const wikiDescriptorJsonSchema = {
         direction: { type: 'string', enum: ['ltr', 'rtl'] },
         baseUrl: { type: 'string', format: 'uri' },
         apiUrl: { type: 'string', format: 'uri' },
-    },
-} as const;
-
-const pageSourceRequestJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['wikiId', 'title'],
-    properties: {
-        wikiId: { type: 'string' },
-        title: { type: 'string', minLength: 1, maxLength: 512 },
-    },
-} as const;
-
-const pageSourceJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: [
-        'wikiId',
-        'title',
-        'exists',
-        'contentModel',
-        'source',
-        'fetchedAt',
-    ],
-    properties: {
-        wikiId: { type: 'string' },
-        title: { type: 'string' },
-        exists: { type: 'boolean' },
-        contentModel: { type: 'string', const: 'wikitext' },
-        source: { type: 'string' },
-        baseRevision: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['id', 'timestamp'],
-            properties: {
-                id: { type: 'integer' },
-                timestamp: { type: 'string', format: 'date-time' },
-            },
-        },
-        fetchedAt: { type: 'string', format: 'date-time' },
-    },
-} as const;
-
-const previewRequestJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['wikiId', 'title', 'source', 'contentModel', 'clientRevision'],
-    properties: {
-        wikiId: { type: 'string' },
-        title: { type: 'string', minLength: 1, maxLength: 512 },
-        source: { type: 'string', maxLength: 500_000 },
-        contentModel: { type: 'string', const: 'wikitext' },
-        clientRevision: { type: 'integer', minimum: 0 },
-    },
-} as const;
-
-const previewResultJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: [
-        'clientRevision',
-        'renderUrl',
-        'warnings',
-        'generatedAt',
-        'expiresAt',
-    ],
-    properties: {
-        clientRevision: { type: 'integer' },
-        renderUrl: { type: 'string', format: 'uri' },
-        warnings: {
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['severity', 'message'],
-                properties: {
-                    severity: {
-                        type: 'string',
-                        enum: ['warning', 'error'],
-                    },
-                    code: { type: 'string' },
-                    message: { type: 'string' },
-                },
-            },
-        },
-        generatedAt: { type: 'string', format: 'date-time' },
-        expiresAt: { type: 'string', format: 'date-time' },
     },
 } as const;

@@ -8,6 +8,8 @@
   checklist, including an explicit MIT/GPL governance decision gate.
 - Dedicated accessibility, five-engine browser-compatibility, and deterministic
   desktop/mobile visual-regression gates with reviewed baselines.
+- A complete OpenAPI 3.1 contract with deterministic artifact generation,
+  semantic drift detection, and documented request, response, and error shapes.
 
 ### Changed
 

@@ -18,6 +18,9 @@
   scroll region is keyboard reachable in WebKit.
 - The web development server resolves workspace packages directly to source so
   browser tests and local edits cannot use stale package builds.
+- MediaWiki transport now validates response envelopes and content types,
+  rejects redirects, bounds overload retries and `Retry-After`, normalizes
+  legacy API shapes, and never exposes upstream response or source text.
 
 All notable changes to WikiOne are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

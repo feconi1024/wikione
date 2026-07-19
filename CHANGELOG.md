@@ -18,6 +18,12 @@ All notable changes to WikiOne are documented in this file. The format follows
 - First-party authentication domain service with registration, login, session
   rotation/replay handling, logout, logout-all, profile/password updates, and
   account deletion plus PostgreSQL/Redis and in-memory repository adapters.
+- Credentialed first-party authentication and account API routes with exact
+  origin checks, synchronizer CSRF headers, HTTP-only cookies, rate limits,
+  refresh/logout controls, and inert Wikimedia OAuth start/callback routes.
+- PostgreSQL-backed account persistence and encrypted Redis sessions in Compose,
+  including health-gated startup, durable account storage, and explicit
+  development-only key/cookie configuration.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

@@ -189,7 +189,6 @@ export class AuthenticationService {
                 'The username or password is incorrect.',
             );
         }
-        await this.#sessions.deleteAccount(account.id);
         return this.#issue(account);
     }
 

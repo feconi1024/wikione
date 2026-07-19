@@ -12,9 +12,12 @@
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
+        "@fastify/cookie": "^11.1.2",
         "@fastify/cors": "^11.0.0",
         "@fastify/rate-limit": "^10.0.0",
         "@fastify/swagger": "^9.5.1",
+        "@wikione/auth-core": "workspace:*",
+        "@wikione/auth-store": "workspace:*",
         "@wikione/contracts": "workspace:*",
         "@wikione/mediawiki": "workspace:*",
         "@wikione/preview-document": "workspace:*",

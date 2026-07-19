@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
@@ -10,6 +11,15 @@ import Fastify, {
     type FastifyRequest,
 } from 'fastify';
 
+import {
+    AuthenticationService,
+    createPasswordHasher,
+    type SessionKeyRing,
+} from '@wikione/auth-core';
+import {
+    MemoryAccountRepository,
+    MemorySessionRepository,
+} from '@wikione/auth-store';
 import {
     pageSourceRequestSchema,
     pageSourceSchema,
@@ -29,6 +39,7 @@ import {
 import { createPreviewDocument } from '@wikione/preview-document';
 import { MemoryPreviewStore, type PreviewStore } from '@wikione/preview-store';
 
+import { registerAuthRoutes } from './auth-routes.js';
 import { findSupportedWiki, supportedWikis } from './wiki-registry.js';
 
 const defaultPreviewTtlMilliseconds = 120_000;
@@ -58,6 +69,7 @@ export type MediaWikiClientFactory = (
 ) => MediaWikiClientPort;
 
 export interface BuildApiOptions {
+    readonly authentication?: AuthenticationService;
     readonly logger?: boolean;
     readonly previewStore?: PreviewStore;
     readonly previewBaseUrl?: string;
@@ -67,6 +79,8 @@ export interface BuildApiOptions {
     readonly mediaWikiUserAgent?: string;
     readonly now?: () => number;
     readonly randomId?: () => string;
+    readonly secureCookies?: boolean;
+    readonly sessionKeyRing?: SessionKeyRing;
 }
 
 /** Creates the API without opening a socket so tests can use Fastify injection. */
@@ -90,6 +104,19 @@ export async function buildApi(
         createDefaultMediaWikiClientFactory(
             options.mediaWikiUserAgent ?? defaultUserAgent,
         );
+    const memoryKeyRing = options.sessionKeyRing ?? {
+        activeKeyId: 'memory',
+        encryptionKeys: { memory: randomBytes(32) },
+        lookupHmacKey: randomBytes(32),
+    };
+    const authentication =
+        options.authentication ??
+        new AuthenticationService({
+            accounts: new MemoryAccountRepository(),
+            sessions: new MemorySessionRepository(memoryKeyRing, now),
+            passwordHasher: createPasswordHasher(),
+            now,
+        });
     const app = Fastify({
         bodyLimit: 600_000,
         logController: new LogController({ disableRequestLogging: true }),
@@ -98,6 +125,7 @@ export async function buildApi(
         trustProxy: false,
     });
 
+    await app.register(cookie);
     await app.register(swagger, {
         openapi: {
             openapi: '3.1.0',
@@ -121,8 +149,8 @@ export async function buildApi(
         },
     });
     await app.register(cors, {
-        credentials: false,
-        methods: ['GET', 'POST', 'OPTIONS'],
+        credentials: true,
+        methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
         origin: [...editorOrigins],
         strictPreflight: true,
     });
@@ -136,7 +164,7 @@ export async function buildApi(
         reply.header('Referrer-Policy', 'no-referrer');
     });
     app.addHook('onClose', async () => {
-        await previewStore.close();
+        await Promise.all([previewStore.close(), authentication.close()]);
     });
     app.setErrorHandler(async (error, request, reply) => {
         const statusCode = normalizeStatusCode(readErrorStatusCode(error));
@@ -399,38 +427,11 @@ export async function buildApi(
         },
     );
 
-    app.get(
-        '/v1/auth/availability',
-        {
-            schema: {
-                tags: ['authentication'],
-                response: {
-                    200: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['available', 'reason', 'message'],
-                        properties: {
-                            available: { type: 'boolean', const: false },
-                            reason: {
-                                type: 'string',
-                                const: 'oauth-registration-pending',
-                            },
-                            message: { type: 'string' },
-                        },
-                    },
-                },
-            },
-        },
-        async (_request, reply) => {
-            reply.header('Cache-Control', 'no-store');
-            return {
-                available: false,
-                reason: 'oauth-registration-pending',
-                message:
-                    'Sign-in and publishing are unavailable until OAuth registration is complete.',
-            } as const;
-        },
-    );
+    registerAuthRoutes(app, {
+        authentication,
+        editorOrigins,
+        secureCookies: options.secureCookies ?? false,
+    });
 
     app.get(
         '/openapi.json',

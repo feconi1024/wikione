@@ -196,7 +196,7 @@ describe('Milestone 1 API', () => {
         expect(parsePreview).not.toHaveBeenCalled();
     });
 
-    it('exposes authentication only as a cookie-free placeholder', async () => {
+    it('separates available WikiOne accounts from unavailable Wikimedia OAuth', async () => {
         const app = await createTestApi();
         const response = await app.inject({
             method: 'GET',
@@ -205,10 +205,13 @@ describe('Milestone 1 API', () => {
 
         expect(response.statusCode).toBe(200);
         expect(response.json()).toEqual({
-            available: false,
-            reason: 'oauth-registration-pending',
-            message:
-                'Sign-in and publishing are unavailable until OAuth registration is complete.',
+            firstParty: { available: true, provider: 'wikione' },
+            wikimedia: {
+                available: false,
+                reason: 'oauth-registration-pending',
+                message:
+                    'WikiOne accounts are available. Wikimedia connection awaits public OAuth approval.',
+            },
         });
         expect(response.headers['set-cookie']).toBeUndefined();
     });

@@ -11,6 +11,10 @@ All notable changes to WikiOne are documented in this file. The format follows
   explicit acceptance evidence and Wikimedia OAuth release boundary.
 - Architecture decision separating first-party WikiOne identity from future
   Wikimedia connected-app authorization.
+- Provider-specific first-party account/session contracts, bounded publishing
+  preparation and revision-check contracts, and normalized publish failures.
+- Independently tested scrypt password hashing, Unicode username normalization,
+  opaque token hashing, AES-256-GCM session encryption, and CSRF comparison.
 - Initial pnpm/Turborepo TypeScript workspace.
 - CI, formatting, linting, container-development, and test foundations.
 - Shared, versioned Zod contracts for wikis, page sources, previews, and

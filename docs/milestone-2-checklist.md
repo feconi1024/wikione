@@ -101,3 +101,18 @@ pnpm test:live
 The first four are release gates. `test:live` is an intentional, read-only
 network audit of rendering fixtures and may be reported separately if Wikimedia
 is unreachable. No command in the audit submits an edit.
+
+Final audit results on 2026-07-19:
+
+- `pnpm check`: passed (13 typecheck targets, 22 test files, 81 tests).
+- `pnpm build`: passed (13 package builds and the production web bundle).
+- `pnpm test:e2e`: passed (7 Playwright scenarios).
+- `docker compose config --quiet` and the production Docker build: passed.
+- A disposable account completed registration, authentication, refresh, API
+  restart recovery, deletion, and rejected re-login against real PostgreSQL and
+  Redis services. Redis stored versioned encrypted envelopes without plaintext
+  identity values.
+- `pnpm test:live`: passed all four read-only MediaWiki render fixtures.
+- `pnpm audit --prod`: no known vulnerabilities. The production license audit
+  found permissive dependencies only, including MIT `node-diff3` and BSD-3-Clause
+  `diff`.

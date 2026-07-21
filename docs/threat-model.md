@@ -1,6 +1,6 @@
 # Threat model
 
-## Milestone 2 security objectives
+## Public-beta security objectives
 
 1. Target-generated HTML/JavaScript cannot reach the editor, accounts, or
    cookies.
@@ -26,6 +26,12 @@
   cookie, and exposes no auth/publish routes.
 - Wikipedia APIs, parser HTML, ResourceLoader, templates, and gadgets are
   external and potentially hostile.
+- The public ALB and CloudWatch synthetic are untrusted ingress/probe surfaces.
+  Fargate tasks, RDS, Redis, Secrets Manager, KMS, state, and configuration
+  buckets form the private cloud boundary.
+- GitHub release/deploy workflows and the environment-scoped AWS OIDC role are a
+  privileged supply-chain boundary. A signed artifact is not deployment
+  authority without protected-environment approval.
 
 ## Implemented controls
 
@@ -84,17 +90,63 @@
 - Request/body/source limits, preview debounce, rate limits, opaque 192-bit
   preview IDs, and short TTL constrain load and disclosure.
 
-## Remaining production risks and gates
+### Cloud, secrets, and network controls
 
-- Use unique managed encryption/HMAC keys, documented rotation/recovery, private
-  database/cache networks, TLS, backups, least privilege, dependency/image
-  scanning, resource limits, and incident response.
-- Replace per-instance authentication/upstream rate limits with shared adaptive
-  Redis limits before horizontally scaled public traffic.
+- Only the ALB has public ingress. It serves three exact TLS hosts, rejects
+  unknown hosts, redirects recognized HTTP hosts, drops invalid headers, and
+  uses deletion protection and a modern TLS policy.
+- Tasks run without public IPs, as non-root users, with read-only roots and
+  isolated security groups. ALB-to-task, API-to-PostgreSQL, and service-to-Redis
+  ports are explicit; public egress is restricted to TCP 443. Application fixed
+  target registries remain the SSRF control because MediaWiki/GHCR IPs change.
+- API and preview task roles have separate ElastiCache users and key prefixes.
+  Fifteen-minute SigV4 credentials are regenerated before expiry; Redis has no
+  long-lived password in Terraform, environment configuration, or state.
+- RDS manages its password. ECS injects only the password JSON key, while
+  non-secret connection fields are derived from the RDS resource; production
+  enforces TLS verification.
+- Session keys remain separately managed secret ARNs. Terraform does not read
+  secret values. Operational configuration buckets and SNS use a rotating
+  customer-managed KMS key and deny insecure S3 transport.
+- IndexedDB source, Redis sessions/previews, parser output, and request bodies
+  are excluded from backups and operational logs.
+
+### Release and rollback controls
+
+- CI actions, Terraform/provider versions, base images, and release actions are
+  pinned. CI validates the lockfile, application, OpenAPI, Terraform, IaC
+  misconfigurations, browser behavior, and OCI buildability.
+- Release automation scans source and each image, emits SPDX SBOM/provenance
+  evidence, and keylessly signs immutable GHCR digests and the minimal manifest.
+- Deployment independently verifies manifest/image identities and anonymous
+  pulls, then checks out the manifest-bound source before Terraform planning.
+  AWS credentials are short-lived OIDC sessions constrained by a protected
+  GitHub environment.
+- Staging canary and production promotion must use the exact same signed
+  manifest. ECS readiness circuit breakers and workflow smoke failure restore
+  the complete prior manifest; independent mixed-image rollback is forbidden.
+- Public smoke checks send no source, create no account, and invoke no wiki write.
+
+## Residual risks and external gates
+
+- Fastify request limits are process-local. Multiple tasks increase the aggregate
+  allowance, so production capacity and alarms must stay within the tested
+  password/load envelope until a reviewed shared adaptive limiter is added.
+- The dedicated PostgreSQL instance currently supplies its RDS-managed master
+  identity to the API. Secret isolation and private networking constrain it, but
+  a later database bootstrap should replace it with an application role limited
+  to the WikiOne schema.
+- Task TLS egress must reach changing AWS/GHCR/MediaWiki addresses and therefore
+  cannot be IP-allowlisted with security groups. Fixed application target URLs,
+  redirect rejection, TLS, and request limits remain essential; a future egress
+  proxy/network firewall could add hostname-level enforcement.
 - Benchmark production scrypt concurrency and tune upward only within latency
   and memory budgets; protect the service from distributed password-hash load.
-- Review public privacy/terms, account deletion and backup retention, operator
-  access, and security contact before accepting real users.
+- Real AWS/DNS/TLS, alert delivery, RDS/configuration restore, canary/rollback,
+  operator-access review, and manual accessibility evidence do not exist merely
+  because their automation or checklist is committed.
+- Publish a staffed private security channel and review privacy/terms, account
+  deletion, backup retention, and operator access before accepting real users.
 - After public Wikimedia consumer approval, conduct a separate review of OAuth
   state/PKCE/callbacks, secret and token encryption/rotation, grant scope,
   revocation, authenticated edit CSRF tokens, abuse/CAPTCHA behavior, and live

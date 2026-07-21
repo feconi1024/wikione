@@ -2,16 +2,20 @@
 
 This directory contains the product and engineering record for WikiOne.
 
-- [Architecture](architecture.md) describes the implemented Milestone 2
-  topology and trust boundaries.
+- [Contributor guide](../CONTRIBUTING.md) defines change design, repository
+  standards, required gates, and review expectations.
+- [Security policy](../SECURITY.md) defines supported versions, private
+  reporting, priorities, and response handling.
+- [Architecture](architecture.md) describes the application, AWS runtime, and
+  signed release/deployment control planes.
 - [Wikitext editor](wikitext-editor.md) records the independent language layer,
   supported editing behavior, compatibility limits, and licensing boundary.
 - [API contracts](api-contracts.md) documents implemented routes, shared wire
   shapes, limits, and the OAuth placeholder.
 - [Development](development.md) covers local services, tests, live validation,
   containers, and repository conventions.
-- [Threat model](threat-model.md) records implemented controls and remaining
-  production risks.
+- [Threat model](threat-model.md) records application, cloud, supply-chain, and
+  rollback controls plus residual risks.
 - [Privacy notice](privacy.md) inventories browser drafts, preview traffic,
   ephemeral render data, and current retention.
 - [Wikimedia API policy](api-usage-policy.md) is the upstream-traffic operator
@@ -22,6 +26,17 @@ This directory contains the product and engineering record for WikiOne.
   and required human assistive-technology sign-off.
 - [Browser support](browser-support.md) defines the tested public-beta engine
   versions, feature matrix, and support boundaries.
+- [Deployment and operator guide](deployment.md) defines AWS bootstrap,
+  protected environments, exact runtime configuration, canary/promotion,
+  backup, alert, and evidence procedures.
+- [Release process](release-process.md) defines candidate freeze, signing,
+  staging canary, production promotion, publication gates, and rollback.
+- [Reproducible builds](reproducible-builds.md) defines clean-checkout,
+  application, OCI, OpenAPI, and release-evidence reproduction.
+- [Operations runbook](runbook.md) covers incident triage, key rotation,
+  alerts, rollback, restore drills, and post-incident evidence.
+- [Supported-feature matrix](supported-feature-matrix.md) distinguishes working,
+  fixture-only, gated, unsupported, and externally unproven capabilities.
 - [Release evidence](evidence/) contains source-free machine-readable audit
   records retained with the repository.
 - [OAuth registration](oauth-registration.md) records the future Wikimedia

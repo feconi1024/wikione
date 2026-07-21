@@ -42,15 +42,18 @@ the cited artifact or external state proves the complete requirement.
 - [ ] Source-license decision is explicitly reconciled: Milestone 3 says GPL,
       while current repository governance and source metadata say MIT.
 - [ ] Clean-checkout application and OCI reproducibility checks pass.
-- [ ] Committed OpenAPI 3.1 artifact is complete and drift-checked.
+- [x] Committed OpenAPI 3.1 artifact is complete and drift-checked by
+      `pnpm openapi:check` and the repository unit gate.
 - [ ] Deployment/operator guide is executable by an independent operator.
-- [ ] Contributor guide and security policy are published.
+- [x] [Contributor guide](../CONTRIBUTING.md) and
+      [security policy](../SECURITY.md) are published. A monitored private
+      contact remains a separate public-beta prerequisite.
 - [ ] Incident, deployment, dependency, certificate, backup, and rollback
       runbooks are exercised.
 - [ ] Architecture and threat model describe the deployed topology and residual
       risks.
-- [ ] Supported-feature matrix distinguishes working, preview-only, gated, and
-      unsupported behavior by target.
+- [x] [Supported-feature matrix](supported-feature-matrix.md) distinguishes
+      working, fixture-only, gated, unsupported, and external-evidence states.
 - [ ] GPL-compatible corresponding source or the explicitly approved
       replacement license release is published with release notes, notices,
       SBOMs, digests, and provenance.

@@ -1,110 +1,157 @@
 # Architecture
 
-## Purpose and Milestone 2 scope
+## Public-beta scope
 
-WikiOne keeps MediaWiki source and a target wiki's compiled article side by
-side. Milestone 2 adds first-party accounts, encrypted server sessions, review,
-revision preflight, and three-way conflict resolution to the English Wikipedia
-MVP. Public Wikimedia OAuth and real wiki writes remain externally gated.
+WikiOne is a source-first MediaWiki editor with continuous target rendering,
+local drafts, first-party accounts, and read-only publication preparation for an
+English Wikipedia MVP. Wikimedia OAuth and upstream edits remain deliberately
+disabled pending consumer approval and a separately reviewed adapter.
 
-## Implemented topology
+## Runtime topology
 
 ```mermaid
 flowchart LR
-    User["Browser user"] --> Web["Vue editor and account routes"]
-    Web --> Drafts["IndexedDB source + base snapshot"]
-    Web -->|"credentialed JSON + CSRF"| API["Fastify BFF"]
-    API -->|"accounts"| Postgres["PostgreSQL"]
-    API -->|"encrypted sessions"| Redis["Redis"]
-    API -->|"anonymous source/parse"| Wiki["English Wikipedia"]
-    API -->|"opaque render bundle"| Redis
-    Web -->|"sandboxed iframe"| Preview["Cookie-free preview origin"]
-    Preview --> Redis
-    OAuth["Wikimedia OAuth and edit adapter"] -. "approval pending; disabled" .-> API
+    Browser["Browser"] -->|"HTTPS app host"| ALB["AWS ALB + ACM"]
+    Browser -->|"credentialed HTTPS API host"| ALB
+    Browser -->|"sandboxed iframe preview host"| ALB
+    ALB --> Web["Non-root web Fargate task"]
+    ALB --> API["Non-root API Fargate task"]
+    ALB --> Preview["Non-root preview Fargate task"]
+    Browser --> Drafts["Local IndexedDB source + base snapshot"]
+    API -->|"accounts over TLS"| RDS["Private multi-AZ PostgreSQL"]
+    API -->|"encrypted sessions + preview bundles"| Redis["Private TLS Redis"]
+    Preview -->|"preview bundles only"| Redis
+    API -->|"fixed anonymous HTTPS APIs"| Wiki["Supported MediaWiki target"]
+    Synthetics["CloudWatch synthetic"] --> ALB
+    Web --> Logs["CloudWatch logs/metrics"]
+    API --> Logs
+    Preview --> Logs
+    Logs --> Alerts["Encrypted SNS operator alerts"]
 ```
 
-The editor never receives parser HTML in API JSON. The BFF stores a complete
-preview document under a random ID and returns only its expiring URL. The
-preview application remains unable to authenticate or publish.
+Only the ALB is internet-facing. It redirects exact known hosts from HTTP to
+HTTPS, rejects unknown hosts, and routes three separate TLS names. Tasks have no
+public IPs. Workload security groups allow ALB-to-service ports, API-to-RDS,
+API/preview-to-Redis, and TLS-only outbound access needed for AWS, public GHCR,
+and fixed target APIs.
+
+Target parser HTML never enters the editor DOM or API JSON. The API stores a
+complete preview document under a random opaque ID in Redis and returns only an
+expiring preview-origin URL. The preview service has no account, OAuth, source
+loading, or publishing route and receives no API cookie.
+
+## Release and deployment control plane
+
+```mermaid
+flowchart LR
+    Source["Reviewed source revision"] --> Release["OCI release workflow"]
+    Release --> GHCR["Public signed GHCR digests"]
+    Release --> Manifest["Signed release manifest + Sigstore bundle"]
+    Manifest --> Deploy["Protected deploy workflow"]
+    GHCR --> Deploy
+    Deploy -->|"GitHub OIDC"| AWS["Terraform-managed AWS environment"]
+    Deploy --> Records["KMS-encrypted versioned config records"]
+    Records -->|"verified prior manifest"| Rollback["Automatic/operator rollback"]
+    Rollback --> AWS
+```
+
+The release workflow scans source/images, publishes SBOM/provenance evidence,
+signs all three image digests, and signs a minimal manifest binding version,
+source revision, publication time, and image references. The deployment workflow
+proves anonymous image access, verifies signatures, checks out the bound source,
+plans exact digests, and assumes an environment-scoped AWS role with OIDC.
+
+Staging `canary` must succeed before production `promote`; production verifies a
+byte-identical signed staging manifest. ECS circuit breakers handle readiness
+failure. Apply or public-probe failure restores all three prior image references.
+Successful plans, hashes, manifests, bundles, deployment records, and the
+last-known-good pointer enter versioned KMS-encrypted configuration storage.
 
 ## Workspace boundaries
 
-The workspace has thirteen independently buildable projects:
+The workspace has fourteen independently buildable projects:
 
 - `apps/web`: split editor, local drafts, account/connected-app/privacy routes,
-  and publish review/conflict UI.
+  and publication review/conflict UI.
 - `apps/api`: read-only MediaWiki BFF, first-party account routes, revision
-  preflight, OpenAPI, OAuth placeholders, and the disabled publish route.
+  preflight, OpenAPI, OAuth placeholders, and disabled publication route.
 - `apps/preview`: cookie-free opaque-bundle server.
-- `apps/render-spike`: pinned live fidelity fixtures.
-- `packages/auth-core`: password policy/hashing, session cryptography, and
-  account/session transitions.
+- `apps/render-spike`: controlled target fidelity/compatibility fixtures.
+- `packages/auth-core`: password hashing, session cryptography, and transitions.
 - `packages/auth-store`: PostgreSQL/Redis plus in-memory test adapters.
-- `packages/publishing-core`: bounded line diff, three-way merge, provider error
-  mapping, create/update safeguards, and revision verification.
-- `packages/wikitext-editor`: independent wikitext language layer.
-- `packages/editor-core`: draft identity/base snapshot and preview coordinator.
 - `packages/contracts`: runtime wire schemas.
+- `packages/editor-core`: draft identity/base snapshot and preview coordinator.
 - `packages/mediawiki`: HTTPS-only anonymous Action API client.
-- `packages/preview-document`: Vector 2022 article shell and ResourceLoader.
+- `packages/preview-document`: Vector-style target document shell and resources.
 - `packages/preview-store`: Redis/in-memory opaque preview bundles.
+- `packages/publishing-core`: bounded diff, merge, preflight, and provider port.
+- `packages/redis-auth`: rotating ElastiCache IAM SigV4 credentials provider.
+- `packages/wikitext-editor`: independently implemented language tooling.
 
-## First-party account sequence
+## Configuration and identity flows
 
-1. Registration validates bounded identity fields and password policy.
-2. The API derives a per-password salted scrypt hash and commits the account to
-   PostgreSQL under a normalized-username unique constraint.
-3. A random 256-bit cookie token is HMACed for Redis lookup. The session payload
-   is encrypted and authenticated with AES-256-GCM under a versioned key ID.
-4. The browser receives only an HTTP-only cookie plus a separate synchronizer
-   CSRF value in JSON.
-5. Exact Origin and CSRF checks protect mutations. Refresh atomically retires
-   the old token; replay revokes the session family.
-6. Idle expiry is 30 minutes and absolute expiry is eight hours. Logout,
-   logout-all, password change, and deletion revoke the relevant sessions.
+The release web image is target-neutral. At task start a shell boundary validates
+the exact HTTPS API/preview origins, Nginx renders CSP from them, and the shell
+writes a same-origin runtime configuration file under the writable `/tmp`
+volume. The image and root filesystem remain read-only.
 
-WikiOne account identity is never a Wikimedia identity. The connected-app page
-shows both states independently.
+RDS manages its master password. Terraform supplies non-secret host/port/name/
+user values and ECS injects only the password JSON key; the API constructs and
+validates a TLS PostgreSQL URL in memory. Redis passwords/tokens are never stored:
+API and preview task roles have separate key-scoped ElastiCache users, sign
+15-minute tokens, reauthenticate every ten minutes, and retry transient signing
+failures before expiry.
 
-## Review and conflict sequence
+First-party registration derives a salted scrypt password hash and stores the
+account in PostgreSQL. A 256-bit cookie token is HMACed for Redis lookup; its
+session payload is AES-256-GCM encrypted under a versioned key. The browser gets
+an HTTP-only host cookie and separate synchronizer CSRF value. Exact Origin,
+Fetch Metadata, CSRF, replay revocation, 30-minute idle expiry, eight-hour
+absolute expiry, password change, logout, and deletion controls apply.
 
-1. IndexedDB retains the base source/revision and current source locally.
-2. `publishing-core` generates a text-only bounded line diff. Vue interpolation,
-   `<ins>`, and `<del>` render it without HTML insertion.
-3. The user supplies a summary, minor flag, and watchlist choice; a current
-   compiled preview is required.
-4. `/v1/publish/prepare` anonymously reloads the current revision and classifies
-   create, update, page creation/deletion, or revision change.
-5. The browser merges base, draft, and latest text. Non-overlapping edits merge
-   automatically; every overlapping region requires mine/latest/manual choice.
-6. Applying a resolution updates the editor, base snapshot, local draft, and
-   ordinary preview pipeline. The user reviews again.
-7. The final Wikimedia button is disabled and `/v1/publish` cannot write.
+WikiOne identity never implies Wikimedia identity. The connected-app page and
+API represent them separately.
 
-The provider port and fake tests already enforce `createonly`-equivalent intent,
-base guards for update, and exact post-write source verification. Enabling a
-network adapter is a later approval-controlled change.
+## Review and conflict flow
 
-## Storage and observability
+1. IndexedDB retains current source plus the exact base source/revision locally.
+2. Publication review renders a bounded text-only diff and requires a current
+   compiled preview and summary.
+3. `/v1/publish/prepare` anonymously reloads the latest fixed-target revision and
+   classifies create/update/deletion/revision conflict without writing.
+4. Three-way merge automatically combines non-overlapping changes and exposes
+   every overlap for mine/latest/manual resolution.
+5. A resolution returns through ordinary draft/preview/review flow.
+6. The final Wikimedia action remains disabled and `/v1/publish` cannot edit.
 
-- IndexedDB: wiki/title, current wikitext, exact base wikitext/revision, and
-  update time. No credentials or parser HTML.
-- PostgreSQL: account ID, username/normalized username, display name, salted
-  password hash, and timestamps. No email in this version.
-- Redis auth keys: HMAC lookup/index keys and AES-GCM session envelopes with TTL.
-- Redis preview keys: rendered HTML and expiry under an unrelated prefix.
-- Source-bearing request logging is disabled. Logs may contain request ID and a
-  normalized failure code, never titles, source, summaries, identities,
-  passwords, cookies, tokens, or session contents.
+The provider port has fake tests for create-only intent, revision-bound updates,
+post-write source verification, and normalized AbuseFilter/CAPTCHA failures. No
+network write adapter is installed.
 
-Compose persists PostgreSQL account data and deliberately does not persist
-Redis previews or sessions.
+## Storage, retention, and observability
 
-## Deployment boundary
+| Store                       | Content                                                    | Backup policy                  |
+| --------------------------- | ---------------------------------------------------------- | ------------------------------ |
+| Browser IndexedDB           | current/base wikitext, revision, timestamp                 | never server-backed up         |
+| PostgreSQL                  | account identity, salted password hash, timestamps         | encrypted 7–35 day retention   |
+| Redis auth prefix           | HMAC indexes and encrypted session envelopes               | ephemeral; never backed up     |
+| Redis preview prefix        | opaque rendered documents with short TTL                   | ephemeral; never backed up     |
+| Terraform state bucket      | encrypted/versioned infrastructure state                   | separate operator-owned bucket |
+| Configuration record bucket | signed manifests/bundles, plans/hashes, deployment records | KMS encrypted and versioned    |
 
-Public deployment requires separate HTTPS editor/API and preview origins,
-private PostgreSQL/Redis networking, unique managed session keys, `Secure`
-cookies, backups/retention policy, a monitored User-Agent/contact, and shared
-rate limiting. Public Wikimedia functionality additionally requires consumer
-approval, secret storage, callback validation, token encryption, and a new
-security/privacy audit.
+Request logs contain bounded method, route template, status, duration, and
+request ID only. They exclude addresses, bodies, titles, source, summaries,
+identities, credentials, cookies, tokens, parser output, and upstream bodies.
+
+CloudWatch covers readiness, target/application 5xx, p95 latency, running tasks,
+unexpected task stops, authentication rejection pressure, RDS/Redis health,
+certificate expiry, RDS operational events, and synthetic public readiness.
+
+## Unfulfilled external state
+
+The repository contains deployable code, not proof of a live service. Public
+beta still requires owner AWS/DNS/secrets, protected environment approvals,
+public GHCR artifacts, real TLS/domain probes, confirmed alert delivery,
+configuration and RDS restore evidence, canary/rollback exercises, manual
+assistive-technology sign-off, a monitored private security contact, and an
+explicit MIT/GPL governance decision.

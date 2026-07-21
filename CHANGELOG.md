@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+All notable changes to WikiOne are documented in this file. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
 
 ### Added
 
@@ -40,37 +43,9 @@
   digests, plans by immutable manifest, smoke-tests canary and promoted
   releases, persists the last-known-good record, and restores all services
   together after a failed apply or public probe.
-
-### Changed
-
-- Modal dialogs now trap and restore keyboard focus, mobile account controls
-  retain an accessible name, CodeMirror uses a WCAG-AA token palette, and its
-  scroll region is keyboard reachable in WebKit.
-- The web development server resolves workspace packages directly to source so
-  browser tests and local edits cannot use stale package builds.
-- Publish-review line numbers meet WCAG AA contrast, scrollable diffs are
-  keyboard reachable, and the mobile review summary wraps without a
-  WebKit-only horizontal scroller.
-- MediaWiki transport now validates response envelopes and content types,
-  rejects redirects, bounds overload retries and `Retry-After`, normalizes
-  legacy API shapes, and never exposes upstream response or source text.
-- API and preview request telemetry now records only bounded operational
-  metadata; request bodies, wikitext, credentials, and client addresses remain
-  outside the structured completion logs.
-- Production startup now fails closed on plaintext data-store transports,
-  non-HTTPS public origins, insecure cookies, and missing trusted-proxy hops.
-- The target-neutral web image now receives its validated API origin at runtime,
-  while the API consumes the RDS-managed password without requiring a
-  pre-provisioned database URL containing a not-yet-created endpoint.
-- CI actions are pinned by commit and CI now validates and security-scans the
-  Terraform module before building the browser and OCI artifacts.
-
-All notable changes to WikiOne are documented in this file. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-
-## [Unreleased]
-
-### Added
+- Contributor and security policies plus executable deployment, release,
+  reproducibility, operations, and supported-feature documentation for the
+  public-beta candidate.
 
 - Recoverable Milestone 2 authentication and publishing-preparation plan with
   explicit acceptance evidence and Wikimedia OAuth release boundary.
@@ -160,3 +135,30 @@ All notable changes to WikiOne are documented in this file. The format follows
   and decision documentation aligned to the implemented anonymous MVP.
 - Current-state privacy inventory, threat model, API-usage checklist, OAuth
   placeholder status, and clarified fidelity-test boundary.
+
+### Changed
+
+- Modal dialogs now trap and restore keyboard focus, mobile account controls
+  retain an accessible name, CodeMirror uses a WCAG-AA token palette, and its
+  scroll region is keyboard reachable in WebKit.
+- The web development server resolves workspace packages directly to source so
+  browser tests and local edits cannot use stale package builds.
+- Publish-review line numbers meet WCAG AA contrast, scrollable diffs are
+  keyboard reachable, and the mobile review summary wraps without a
+  WebKit-only horizontal scroller.
+- MediaWiki transport now validates response envelopes and content types,
+  rejects redirects, bounds overload retries and `Retry-After`, normalizes
+  legacy API shapes, and never exposes upstream response or source text.
+- API and preview request telemetry now records only bounded operational
+  metadata; request bodies, wikitext, credentials, and client addresses remain
+  outside the structured completion logs.
+- Production startup now fails closed on plaintext data-store transports,
+  non-HTTPS public origins, insecure cookies, and missing trusted-proxy hops.
+- The target-neutral web image now receives its validated API origin at runtime,
+  while the API consumes the RDS-managed password without requiring a
+  pre-provisioned database URL containing a not-yet-created endpoint.
+- CI actions are pinned by commit and CI now validates and security-scans the
+  Terraform module before building the browser and OCI artifacts.
+- Architecture and threat-model documentation now covers the AWS runtime,
+  signed supply chain, protected promotion, configuration-only retention,
+  rollback controls, and explicitly unproven external state.

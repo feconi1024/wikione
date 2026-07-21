@@ -32,6 +32,14 @@
 - A short-lived ElastiCache IAM credentials provider that signs Redis
   connections with the ECS task role, renews credentials before expiry, and
   retries transient signing failures without persisting tokens or AWS secrets.
+- Validated AWS infrastructure as code for exact app/API/preview domains,
+  private Fargate workloads, managed PostgreSQL and IAM-authenticated Redis,
+  managed TLS, KMS-encrypted configuration records, synthetic monitoring,
+  dashboards, alerts, and readiness-driven rollback.
+- A protected GitHub OIDC deployment workflow that verifies signed public GHCR
+  digests, plans by immutable manifest, smoke-tests canary and promoted
+  releases, persists the last-known-good record, and restores all services
+  together after a failed apply or public probe.
 
 ### Changed
 
@@ -51,6 +59,11 @@
   outside the structured completion logs.
 - Production startup now fails closed on plaintext data-store transports,
   non-HTTPS public origins, insecure cookies, and missing trusted-proxy hops.
+- The target-neutral web image now receives its validated API origin at runtime,
+  while the API consumes the RDS-managed password without requiring a
+  pre-provisioned database URL containing a not-yet-created endpoint.
+- CI actions are pinned by commit and CI now validates and security-scans the
+  Terraform module before building the browser and OCI artifacts.
 
 All notable changes to WikiOne are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

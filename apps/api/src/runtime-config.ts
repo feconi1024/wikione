@@ -38,13 +38,7 @@ export function readApiRuntimeConfig(
         production ? undefined : 'redis://127.0.0.1:6379',
         'REDIS_URL',
     );
-    const databaseUrl = readValue(
-        environment.DATABASE_URL,
-        production
-            ? undefined
-            : 'postgres://wikione:wikione@127.0.0.1:5432/wikione',
-        'DATABASE_URL',
-    );
+    const databaseUrl = readDatabaseUrl(environment, production);
     const previewBaseUrl = readValue(
         environment.PREVIEW_BASE_URL,
         production ? undefined : 'http://127.0.0.1:4174',
@@ -103,6 +97,50 @@ export function readApiRuntimeConfig(
         secureCookies,
         trustProxy: proxyHops === 0 ? false : proxyHops,
     };
+}
+
+function readDatabaseUrl(
+    environment: Environment,
+    production: boolean,
+): string {
+    const explicitUrl = environment.DATABASE_URL?.trim();
+    const components = {
+        host: environment.DATABASE_HOST?.trim(),
+        name: environment.DATABASE_NAME?.trim(),
+        password: environment.DATABASE_PASSWORD,
+        port: environment.DATABASE_PORT?.trim(),
+        user: environment.DATABASE_USER?.trim(),
+    };
+    const presentComponents = Object.values(components).filter(
+        (value) => value !== undefined && value !== '',
+    ).length;
+    if (explicitUrl && presentComponents > 0) {
+        throw new Error(
+            'Configure DATABASE_URL or the DATABASE_HOST/PORT/NAME/USER/PASSWORD set, not both.',
+        );
+    }
+    if (explicitUrl) {
+        return explicitUrl;
+    }
+    if (presentComponents === 0 && !production) {
+        return 'postgres://wikione:wikione@127.0.0.1:5432/wikione';
+    }
+    if (presentComponents !== 5) {
+        throw new Error(
+            'Production database components require DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, and DATABASE_PASSWORD together.',
+        );
+    }
+
+    const url = new URL('postgresql://database.invalid');
+    url.hostname = components.host as string;
+    url.port = String(
+        readInteger(components.port, 5_432, 1, 65_535, 'DATABASE_PORT'),
+    );
+    url.username = components.user as string;
+    url.password = components.password as string;
+    url.pathname = `/${components.name as string}`;
+    url.searchParams.set('sslmode', 'verify-full');
+    return url.toString();
 }
 
 function readRedisIamConfig(

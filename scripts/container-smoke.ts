@@ -66,6 +66,56 @@ if (web.status !== 0) {
     throw new Error(`Read-only web configuration check failed: ${web.stderr}`);
 }
 
+const runtimeConfig = spawnSync(
+    'docker',
+    [
+        'run',
+        '--rm',
+        '--read-only',
+        '--tmpfs',
+        '/tmp',
+        '--entrypoint',
+        '/bin/sh',
+        '-e',
+        'API_ORIGIN=https://api.smoke.test',
+        '-e',
+        'PREVIEW_ORIGIN=https://preview.smoke.test',
+        imageNames.web,
+        '-c',
+        '/docker-entrypoint.d/20-wikione-runtime-config.sh && grep -F \'apiBaseUrl:"https://api.smoke.test"\' /tmp/wikione-runtime-config.js',
+    ],
+    { encoding: 'utf8', timeout: 15_000 },
+);
+
+if (runtimeConfig.status !== 0) {
+    throw new Error(
+        `Web runtime-origin generation failed: ${runtimeConfig.stderr}`,
+    );
+}
+
+const unsafeRuntimeConfig = spawnSync(
+    'docker',
+    [
+        'run',
+        '--rm',
+        '--read-only',
+        '--tmpfs',
+        '/tmp',
+        '--entrypoint',
+        '/docker-entrypoint.d/20-wikione-runtime-config.sh',
+        '-e',
+        'API_ORIGIN=https://api.smoke.test/unsafe',
+        '-e',
+        'PREVIEW_ORIGIN=https://preview.smoke.test',
+        imageNames.web,
+    ],
+    { encoding: 'utf8', timeout: 15_000 },
+);
+
+if (unsafeRuntimeConfig.status === 0) {
+    throw new Error('Web runtime configuration accepted an unsafe API origin');
+}
+
 process.stdout.write(
-    'OCI labels, non-root users, health checks, and read-only web configuration passed.\n',
+    'OCI labels, non-root users, health checks, and read-only runtime configuration passed.\n',
 );

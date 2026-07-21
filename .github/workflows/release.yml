@@ -10,24 +10,6 @@ on:
                 description: Immutable release version recorded in the manifest
                 required: true
                 default: 0.0.0-dev
-            rollout_action:
-                description: Manifest intent consumed by deployment automation
-                required: true
-                type: choice
-                default: none
-                options:
-                    - none
-                    - canary
-                    - promote
-                    - rollback
-            canary_percent:
-                description: Requested canary percentage (0-100)
-                required: true
-                default: '0'
-            rollback_digest:
-                description: Required for rollback; a previously signed image digest
-                required: false
-                default: ''
 
 permissions:
     contents: read
@@ -40,9 +22,6 @@ env:
     REGISTRY: ghcr.io
     IMAGE_NAMESPACE: ${{ github.repository_owner }}/wikione
     VERSION: ${{ inputs.version || github.ref_name }}
-    ROLLOUT_ACTION: ${{ inputs.rollout_action || 'none' }}
-    CANARY_PERCENT: ${{ inputs.canary_percent || '0' }}
-    ROLLBACK_DIGEST: ${{ inputs.rollback_digest || '' }}
 
 jobs:
     scan-source:
@@ -165,14 +144,6 @@ jobs:
         timeout-minutes: 10
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-            - name: Validate requested rollout contract
-              run: |
-                  test "$CANARY_PERCENT" -ge 0
-                  test "$CANARY_PERCENT" -le 100
-                  if [ "$ROLLOUT_ACTION" = rollback ] && [ -z "$ROLLBACK_DIGEST" ]; then
-                    echo 'rollback_digest is required for rollback' >&2
-                    exit 1
-                  fi
             - name: Create release deployment manifest
               run: |
                   mkdir -p release-artifacts
@@ -183,10 +154,7 @@ jobs:
                     --arg api "$REGISTRY/$IMAGE_NAMESPACE-api@${{ needs.publish.outputs.api_digest }}" \
                     --arg preview "$REGISTRY/$IMAGE_NAMESPACE-preview@${{ needs.publish.outputs.preview_digest }}" \
                     --arg web "$REGISTRY/$IMAGE_NAMESPACE-web@${{ needs.publish.outputs.web_digest }}" \
-                    --arg action "$ROLLOUT_ACTION" \
-                    --argjson canaryPercent "$CANARY_PERCENT" \
-                    --arg rollbackDigest "$ROLLBACK_DIGEST" \
-                    '{version: $version, revision: $revision, publishedAt: $publishedAt, images: {api: $api, preview: $preview, web: $web}, rollout: {action: $action, canaryPercent: $canaryPercent, rollbackDigest: $rollbackDigest}}' \
+                    '{version: $version, revision: $revision, publishedAt: $publishedAt, images: {api: $api, preview: $preview, web: $web}}' \
                     > release-artifacts/release-manifest.json
             - name: Validate release deployment manifest
               run: |
@@ -194,9 +162,7 @@ jobs:
                     .revision == $revision and
                     (.publishedAt | fromdateiso8601 > 0) and
                     (.images | keys == ["api", "preview", "web"]) and
-                    ([.images[] | test("^ghcr\\.io/.+@sha256:[0-9a-f]{64}$")] | all) and
-                    (.rollout.action as $action | ["none", "canary", "promote", "rollback"] | index($action) != null) and
-                    (.rollout.canaryPercent >= 0 and .rollout.canaryPercent <= 100)
+                    ([.images[] | test("^ghcr\\.io/.+@sha256:[0-9a-f]{64}$")] | all)
                   ' release-artifacts/release-manifest.json
             - uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
             - name: Keylessly sign release deployment manifest

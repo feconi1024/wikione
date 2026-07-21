@@ -17,3 +17,9 @@ playwright-report
 *.log
 *.md
 !README.md
+.terraform
+*.tfplan
+*.tfstate
+*.tfstate.*
+*.tfvars
+backend.hcl

@@ -5,16 +5,20 @@ inputs in the repository root. Images are published under immutable commit-SHA
 tags and recorded by immutable digest in the release manifest. A human-friendly
 version tag is a convenience reference only; deployment must consume the digest.
 
-The release workflow accepts an explicit rollout action:
+The release workflow produces artifacts only. The protected deployment workflow
+accepts an explicit rollout action after verifying the signed manifest and all
+three signed image digests:
 
-- `none` produces and signs the immutable candidate only.
-- `canary` produces a manifest for a named canary percentage; the deployment
-  system applies that manifest only after its health checks pass.
-- `promote` moves an already verified digest to the full public-beta service.
-- `rollback` requires `rollback_digest` and creates a manifest pointing back to
-  that known-good immutable digest.
+- `plan` renders a reviewed Terraform plan without changing cloud state.
+- `canary` deploys and smoke-tests the candidate in the protected staging
+  environment before production promotion.
+- `promote` applies the same verified manifest to the protected production
+  environment.
+- `rollback` selects a previously signed manifest by source revision from the
+  versioned configuration bucket and restores all three image digests together.
 
-The workflow does not contain long-lived cloud credentials or deploy directly.
-Terraform owns the target infrastructure and deployment automation consumes the
-Cosign-signed manifest and its Sigstore bundle. Configuration backups must
-exclude user drafts, sessions, preview documents, and MediaWiki credentials.
+The deployment workflow assumes a short-lived environment-scoped AWS role with
+GitHub OIDC. Terraform owns the target infrastructure; the workflow persists the
+Cosign-signed manifest, Sigstore bundle, deployment record, and last-known-good
+pointer only after public smoke probes pass. Configuration backups must exclude
+user drafts, sessions, preview documents, and MediaWiki credentials.

@@ -36,5 +36,13 @@ export default tseslint.config(
             '@typescript-eslint/no-explicit-any': 'error',
         },
     },
+    {
+        files: ['apps/web/public/**/*.js', 'infra/terraform/canary/**/*.js'],
+        ...tseslint.configs.disableTypeChecked,
+        rules: {
+            ...tseslint.configs.disableTypeChecked.rules,
+            '@typescript-eslint/no-require-imports': 'off',
+        },
+    },
     prettier,
 );

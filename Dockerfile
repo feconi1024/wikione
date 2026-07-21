@@ -78,6 +78,7 @@ ENV API_ORIGIN=https://api.example.invalid \
     PREVIEW_ORIGIN=https://preview.example.invalid \
     NGINX_ENVSUBST_FILTER=API_ORIGIN|PREVIEW_ORIGIN
 COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
+COPY --chmod=0555 infra/container/web-runtime-config.sh /docker-entrypoint.d/20-wikione-runtime-config.sh
 COPY --from=build --chown=101:101 /workspace/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

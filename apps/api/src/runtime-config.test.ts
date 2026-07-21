@@ -44,6 +44,27 @@ describe('API runtime configuration', () => {
         });
     });
 
+    it('constructs a TLS URL from managed RDS connection components', () => {
+        const environment = {
+            ...productionEnvironment,
+            DATABASE_URL: '',
+            DATABASE_HOST: 'database.internal',
+            DATABASE_PORT: '5432',
+            DATABASE_NAME: 'wikione',
+            DATABASE_USER: 'wiki-one',
+            DATABASE_PASSWORD: 'secret:/?#[]@',
+        };
+
+        const config = readApiRuntimeConfig(environment);
+        const databaseUrl = new URL(config.databaseUrl);
+        expect(databaseUrl.hostname).toBe('database.internal');
+        expect(databaseUrl.port).toBe('5432');
+        expect(databaseUrl.username).toBe('wiki-one');
+        expect(databaseUrl.password).toBe('secret%3A%2F%3F%23%5B%5D%40');
+        expect(databaseUrl.pathname).toBe('/wikione');
+        expect(databaseUrl.searchParams.get('sslmode')).toBe('verify-full');
+    });
+
     it.each([
         [{ ...productionEnvironment, REDIS_URL: 'redis://cache:6379' }],
         [
@@ -67,6 +88,13 @@ describe('API runtime configuration', () => {
         [{ ...productionEnvironment, COOKIE_SECURE: 'false' }],
         [{ ...productionEnvironment, TRUST_PROXY_HOPS: '0' }],
         [{ ...productionEnvironment, REDIS_IAM_USER_ID: '' }],
+        [
+            {
+                ...productionEnvironment,
+                DATABASE_URL: '',
+                DATABASE_HOST: 'database.internal',
+            },
+        ],
     ])('rejects an insecure production boundary', (environment) => {
         expect(() => readApiRuntimeConfig(environment)).toThrow();
     });

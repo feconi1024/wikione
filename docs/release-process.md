@@ -12,6 +12,8 @@ Record the full commit, version, changelog entry, compatibility/browser/load
 evidence, known limitations, release manager, approvers, deployment window, and
 last-known-good revision. Confirm that the worktree contains no credentials,
 source-bearing artifacts, local Terraform data, or unreviewed generated output.
+Database changes must use an expand/contract sequence that remains compatible
+with the last-known-good image; a container rollback never reverses PostgreSQL.
 
 Run from a clean checkout:
 

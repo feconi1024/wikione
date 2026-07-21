@@ -37,6 +37,9 @@ All notable changes to WikiOne are documented in this file. The format follows
   retries transient signing failures without persisting tokens or AWS secrets.
 - An atomic Redis-backed API rate-limit store that shares privacy-preserving
   counters across Fargate tasks and participates in readiness checks.
+- A migration-gated PostgreSQL application role whose AWS-generated password
+  uses Terraform ephemeral/write-only values and never enters Terraform state;
+  the long-running API no longer receives the RDS master credential.
 - Validated AWS infrastructure as code for exact app/API/preview domains,
   private Fargate workloads, managed PostgreSQL and IAM-authenticated Redis,
   managed TLS, KMS-encrypted configuration records, synthetic monitoring,

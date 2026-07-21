@@ -30,8 +30,9 @@ resolution for an English Wikipedia MVP.
   checks; source/image scans; SPDX SBOM/provenance output; and signed immutable
   GHCR release manifests.
 - Validated AWS Terraform for exact app/API/preview domains, private Fargate,
-  managed PostgreSQL and IAM-authenticated Redis, TLS/CSP, KMS-encrypted
-  configuration records, dashboards, synthetics, alerts, and rollback.
+  managed PostgreSQL with a migration-gated least-privileged API role,
+  IAM-authenticated Redis, TLS/CSP, KMS-encrypted configuration records,
+  dashboards, synthetics, alerts, and rollback.
 - A protected GitHub OIDC deployment workflow that requires a successful exact
   staging canary before production promotion and restores the complete prior
   signed manifest on apply or public-probe failure.

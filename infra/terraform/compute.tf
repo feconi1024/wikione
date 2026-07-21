@@ -40,8 +40,22 @@ data "aws_iam_policy_document" "execution_secrets" {
     resources = distinct(concat(
       values(var.api_secret_arns),
       values(var.preview_secret_arns),
-      [aws_db_instance.postgres.master_user_secret[0].secret_arn],
+      [
+        aws_db_instance.postgres.master_user_secret[0].secret_arn,
+        aws_secretsmanager_secret.database_app.arn,
+      ],
     ))
+  }
+
+  statement {
+    sid       = "DecryptApplicationDatabaseSecret"
+    actions   = ["kms:Decrypt"]
+    resources = [aws_kms_key.operational.arn]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["secretsmanager.${var.aws_region}.amazonaws.com"]
+    }
   }
 }
 
@@ -88,41 +102,81 @@ resource "aws_ecs_task_definition" "service" {
   execution_role_arn       = aws_iam_role.execution.arn
   task_role_arn            = aws_iam_role.task[each.key].arn
 
-  container_definitions = jsonencode([{
-    name      = each.key
-    image     = each.value.image
-    essential = true
-    portMappings = [{
-      containerPort = each.value.port
-      hostPort      = each.value.port
-      protocol      = "tcp"
-    }]
-    environment = [for name, value in each.value.environment : { name = name, value = value }]
-    secrets     = [for name, value_from in each.value.secrets : { name = name, valueFrom = value_from }]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        awslogs-group         = aws_cloudwatch_log_group.service[each.key].name
-        awslogs-region        = var.aws_region
-        awslogs-stream-prefix = "ecs"
+  container_definitions = jsonencode(concat(
+    [{
+      name      = each.key
+      image     = each.value.image
+      essential = true
+      dependsOn = each.key == "api" ? [{
+        containerName = "database-migration"
+        condition     = "SUCCESS"
+      }] : []
+      portMappings = [{
+        containerPort = each.value.port
+        hostPort      = each.value.port
+        protocol      = "tcp"
+      }]
+      environment = [for name, value in each.value.environment : { name = name, value = value }]
+      secrets     = [for name, value_from in each.value.secrets : { name = name, valueFrom = value_from }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.service[each.key].name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
+        }
       }
-    }
-    linuxParameters = {
-      initProcessEnabled = true
-    }
-    readonlyRootFilesystem = true
-    mountPoints = concat(
-      [{ sourceVolume = "runtime-tmp", containerPath = "/tmp", readOnly = false }],
-      each.key == "web" ? [{ sourceVolume = "nginx-config", containerPath = "/etc/nginx/conf.d", readOnly = false }] : []
-    )
-    healthCheck = {
-      command     = each.value.health_command
-      interval    = 30
-      timeout     = 5
-      retries     = 3
-      startPeriod = 30
-    }
-  }])
+      linuxParameters = {
+        initProcessEnabled = true
+      }
+      readonlyRootFilesystem = true
+      mountPoints = concat(
+        [{ sourceVolume = "runtime-tmp", containerPath = "/tmp", readOnly = false }],
+        each.key == "web" ? [{ sourceVolume = "nginx-config", containerPath = "/etc/nginx/conf.d", readOnly = false }] : []
+      )
+      healthCheck = {
+        command     = each.value.health_command
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 30
+      }
+    }],
+    each.key == "api" ? [{
+      name      = "database-migration"
+      image     = each.value.image
+      essential = false
+      command   = ["node", "dist/migrate-database.js"]
+      environment = [
+        { name = "DATABASE_BOOTSTRAP_USER", value = aws_db_instance.postgres.username },
+        { name = "DATABASE_CREDENTIAL_VERSION", value = tostring(var.database_application_secret_version) },
+        { name = "DATABASE_HOST", value = aws_db_instance.postgres.address },
+        { name = "DATABASE_NAME", value = aws_db_instance.postgres.db_name },
+        { name = "DATABASE_PORT", value = tostring(aws_db_instance.postgres.port) },
+        { name = "DATABASE_USER", value = local.database_application_user },
+        { name = "NODE_ENV", value = "production" },
+      ]
+      secrets = [
+        { name = "DATABASE_BOOTSTRAP_PASSWORD", valueFrom = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password::" },
+        { name = "DATABASE_PASSWORD", valueFrom = "${aws_secretsmanager_secret.database_app.arn}:password::" },
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.service[each.key].name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "database-migration"
+        }
+      }
+      linuxParameters = {
+        initProcessEnabled = true
+      }
+      readonlyRootFilesystem = true
+      mountPoints            = [{ sourceVolume = "runtime-tmp", containerPath = "/tmp", readOnly = false }]
+    }] : []
+  ))
+
+  depends_on = [aws_secretsmanager_secret_version.database_app]
 
   volume {
     name = "runtime-tmp"

@@ -44,8 +44,12 @@ An administrator must create these resources before the application stack:
 4. Public `staging` and `production` DNS names in an existing Route 53 zone and
    a monitored alert address.
 
-RDS creates and rotates its master password. ECS injects only the `password`
-JSON key and non-secret connection components; an operator must not construct a
+RDS creates and rotates its master password. AWS generates a separate
+application password that Terraform passes only through ephemeral and
+write-only values into KMS-encrypted Secrets Manager. A short-lived migration
+init container receives both credentials, serializes schema/role changes, and
+must succeed before the API starts. The long-running API receives only the
+least-privileged application password; an operator must not construct a
 `DATABASE_URL`. Redis has no stored password: task roles sign 15-minute IAM
 credentials and the client reauthenticates every ten minutes.
 
@@ -54,19 +58,20 @@ credentials and the client reauthenticates every ten minutes.
 Configure both `staging` and `production` with required reviewers. Set these
 environment variables:
 
-| Variable                  | Example/meaning                                     |
-| ------------------------- | --------------------------------------------------- |
-| `AWS_ACCOUNT_ID`          | expected 12-digit deployment account                |
-| `AWS_REGION`              | region containing the complete environment          |
-| `AWS_DEPLOY_ROLE_ARN`     | OIDC role assumed by `.github/workflows/deploy.yml` |
-| `ALERT_EMAIL`             | monitored SNS subscription and upstream contact     |
-| `AVAILABILITY_ZONES_JSON` | JSON array containing at least two regional AZs     |
-| `ROUTE53_ZONE_NAME`       | existing public zone without a trailing dot         |
-| `TF_STATE_BUCKET`         | separately bootstrapped versioned state bucket      |
-| `TF_STATE_KEY`            | environment-specific state object key               |
-| `TF_STATE_REGION`         | state bucket region                                 |
-| `TERRAFORM_TAGS_JSON`     | optional JSON object of organization tags           |
-| `CANARY_CONFIG_BUCKET`    | production only: staging configuration-bucket name  |
+| Variable                              | Example/meaning                                     |
+| ------------------------------------- | --------------------------------------------------- |
+| `AWS_ACCOUNT_ID`                      | expected 12-digit deployment account                |
+| `AWS_REGION`                          | region containing the complete environment          |
+| `AWS_DEPLOY_ROLE_ARN`                 | OIDC role assumed by `.github/workflows/deploy.yml` |
+| `ALERT_EMAIL`                         | monitored SNS subscription and upstream contact     |
+| `AVAILABILITY_ZONES_JSON`             | JSON array containing at least two regional AZs     |
+| `ROUTE53_ZONE_NAME`                   | existing public zone without a trailing dot         |
+| `TF_STATE_BUCKET`                     | separately bootstrapped versioned state bucket      |
+| `TF_STATE_KEY`                        | environment-specific state object key               |
+| `TF_STATE_REGION`                     | state bucket region                                 |
+| `TERRAFORM_TAGS_JSON`                 | optional JSON object of organization tags           |
+| `CANARY_CONFIG_BUCKET`                | production only: staging configuration-bucket name  |
+| `DATABASE_APPLICATION_SECRET_VERSION` | optional positive rotation generation; default `1`  |
 
 Set `API_SECRET_ARNS_JSON` as an environment secret containing only an ARN map:
 
@@ -153,8 +158,9 @@ definitions:
 | -------------------------------------- | --------------------------------------------------------- |
 | `API_ORIGIN`, `PREVIEW_ORIGIN`         | exact HTTPS names; web entrypoint validates them          |
 | `EDITOR_ORIGINS`, `PREVIEW_BASE_URL`   | exact editor/preview HTTPS origins                        |
-| `DATABASE_HOST/PORT/NAME/USER`         | RDS resource attributes                                   |
-| `DATABASE_PASSWORD`                    | RDS-managed secret's `password` JSON key                  |
+| `DATABASE_HOST/PORT/NAME`              | RDS resource attributes                                   |
+| `DATABASE_USER/PASSWORD`               | least-privileged role and write-only application secret   |
+| migration bootstrap identity           | RDS master secret, injected only into the init container  |
 | `REDIS_URL`                            | private `rediss://` endpoint without embedded credentials |
 | `REDIS_IAM_CACHE_NAME/USER_ID`, region | separate key-scoped API/preview IAM identities            |
 | session key values                     | Secrets Manager references supplied by ARN                |
@@ -164,6 +170,24 @@ definitions:
 The web image is target-neutral. Its entrypoint validates the two exact origins
 and writes `/tmp/wikione-runtime-config.js` under the read-only task filesystem;
 no target-specific image rebuild is required.
+
+## Database migration and credential rotation
+
+Every API task starts a nonessential `database-migration` container from the
+same immutable API image. Concurrent tasks take a PostgreSQL advisory lock. The
+container applies backward-compatible schema migrations, creates or updates the
+application role, revokes broad database/schema/table privileges, grants only
+account-table DML plus migration-table reads, and exits. ECS starts the API only
+after that container reports `SUCCESS`; migration failure therefore fails the
+deployment closed.
+
+Migrations must follow expand/contract compatibility so the previous image can
+continue operating during replacement and rollback. To rotate the application
+credential, increment `DATABASE_APPLICATION_SECRET_VERSION` in the protected
+environment, review the Terraform plan, and deploy. Terraform generates a new
+password without storing it in plan/state, changes the API task definition, and
+the init container updates the role before the new API process starts. Rotate
+the RDS-managed master password separately through RDS and verify a canary task.
 
 ## Configuration backup and restore drill
 

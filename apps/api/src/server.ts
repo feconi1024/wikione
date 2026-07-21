@@ -26,7 +26,9 @@ const previewStore = await RedisPreviewStore.connect(
     redisCredentialsProvider,
 );
 const sessionKeyRing = readEnvironmentSessionKeys();
-const accounts = await PostgresAccountRepository.connect(config.databaseUrl);
+const accounts = await PostgresAccountRepository.connect(config.databaseUrl, {
+    migrate: process.env.NODE_ENV !== 'production',
+});
 const sessions = await RedisSessionRepository.connect(
     redisUrl,
     sessionKeyRing,

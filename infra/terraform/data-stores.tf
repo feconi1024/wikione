@@ -31,6 +31,29 @@ resource "aws_db_instance" "postgres" {
   vpc_security_group_ids = [aws_security_group.database.id]
 }
 
+resource "aws_secretsmanager_secret" "database_app" {
+  name                    = "wikione/${var.environment}/database/application"
+  description             = "Least-privileged WikiOne API database credential"
+  kms_key_id              = aws_kms_key.operational.arn
+  recovery_window_in_days = 30
+}
+
+# The generated password flows only through Terraform's ephemeral value and the
+# AWS provider's write-only argument; it is never persisted in Terraform state.
+ephemeral "aws_secretsmanager_random_password" "database_app" {
+  password_length     = 48
+  exclude_punctuation = true
+}
+
+resource "aws_secretsmanager_secret_version" "database_app" {
+  secret_id = aws_secretsmanager_secret.database_app.id
+  secret_string_wo = jsonencode({
+    username = local.database_application_user
+    password = ephemeral.aws_secretsmanager_random_password.database_app.random_password
+  })
+  secret_string_wo_version = var.database_application_secret_version
+}
+
 resource "aws_elasticache_subnet_group" "redis" {
   name       = "wikione-${var.environment}-redis"
   subnet_ids = [for subnet in aws_subnet.private : subnet.id]

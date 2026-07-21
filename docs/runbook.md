@@ -58,12 +58,16 @@ results.
 For suspected credential/session compromise, remove affected release capacity if
 needed, revoke first-party sessions, rotate the session encryption and lookup
 HMAC secrets in the secret manager, deploy a new `SESSION_KEY_ID`, and verify
-old session families cannot authenticate. Rotate the RDS-managed password using
-the managed service procedure. Redis has no stored password; for a task-role or
-cache-user compromise, revoke `elasticache:Connect`, replace the affected IAM
-user/role policy, expire Redis sessions/previews, and redeploy. Do not add OAuth
-secrets or attempt upstream revocation: no OAuth credentials are part of the
-current supported runtime.
+old session families cannot authenticate. Rotate the RDS-managed bootstrap
+password using the managed service procedure, then prove a migration init
+container succeeds. Rotate the API database password by incrementing the
+protected `DATABASE_APPLICATION_SECRET_VERSION`, reviewing the plan, and
+deploying the resulting task revision; verify the init container re-applies the
+least-privileged role before API readiness. Redis has no stored password; for a
+task-role or cache-user compromise, revoke `elasticache:Connect`, replace the
+affected IAM user/role policy, expire Redis sessions/previews, and redeploy. Do
+not add OAuth secrets or attempt upstream revocation: no OAuth credentials are
+part of the current supported runtime.
 
 Record scope and affected data categories as described in `docs/privacy.md`.
 Escalate through the private channel described in `SECURITY.md`; its owner

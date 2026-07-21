@@ -24,6 +24,12 @@ output "postgres_master_secret_arn" {
   sensitive   = true
 }
 
+output "postgres_application_secret_arn" {
+  value       = aws_secretsmanager_secret.database_app.arn
+  description = "Least-privileged API database secret ARN; its write-only value is intentionally not an output or state value."
+  sensitive   = true
+}
+
 output "redis_endpoint" {
   value       = aws_elasticache_replication_group.redis.primary_endpoint_address
   description = "TLS Redis endpoint used with task-role IAM authentication; no password is emitted."

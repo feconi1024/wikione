@@ -67,7 +67,7 @@ variable "container_image_digests" {
 
 variable "api_secret_arns" {
   type        = map(string)
-  description = "ARNs of pre-created Secrets Manager secrets containing complete values. Terraform never reads secret values. Required: SESSION_ENCRYPTION_KEY_BASE64 and SESSION_LOOKUP_HMAC_KEY_BASE64. The RDS-managed password is wired automatically."
+  description = "ARNs of pre-created Secrets Manager secrets containing complete values. Terraform never reads secret values. Required: SESSION_ENCRYPTION_KEY_BASE64 and SESSION_LOOKUP_HMAC_KEY_BASE64. The write-only application database credential is managed separately."
   sensitive   = true
   validation {
     condition = alltrue([
@@ -88,6 +88,16 @@ variable "db_instance_class" {
   type        = string
   description = "RDS PostgreSQL instance class."
   default     = "db.t4g.medium"
+}
+
+variable "database_application_secret_version" {
+  type        = number
+  description = "Positive rotation generation for the write-only API database password. Increment through a reviewed plan to rotate and redeploy API tasks."
+  default     = 1
+  validation {
+    condition     = var.database_application_secret_version >= 1 && floor(var.database_application_secret_version) == var.database_application_secret_version
+    error_message = "database_application_secret_version must be a positive integer."
+  }
 }
 
 variable "db_backup_retention_days" {

@@ -14,7 +14,8 @@ origin.
   security groups. Only the ALB can reach each service port; only API can reach
   PostgreSQL, and only API/preview can reach Redis.
 - RDS PostgreSQL is encrypted, Multi-AZ, deletion protected, and keeps
-  automated backups for 7–35 days. Its master credential is RDS-managed.
+  automated backups for 7–35 days. Its master credential is RDS-managed and is
+  available only to the short-lived API migration init container.
 - ElastiCache Redis is TLS-encrypted and IAM-authenticated with separate
   key-scoped API and preview users. It holds only encrypted sessions and
   short-lived isolated-preview bundles: snapshots and persistence are disabled,
@@ -36,9 +37,17 @@ Create the two session-key Secrets Manager values outside Terraform through the
 approved rotation process, then place **only their ARNs** in a non-committed
 `*.tfvars` file or the protected `API_SECRET_ARNS_JSON` environment secret.
 Terraform never invokes `GetSecretValue`, so those values do not enter its state
-or plan. RDS manages its master password; ECS injects only the `password` JSON
-key, while Terraform supplies the non-secret endpoint components. No operator
-constructs or stores a `DATABASE_URL`.
+or plan. AWS generates the API database password through an ephemeral provider
+resource and Terraform writes it to KMS-encrypted Secrets Manager through a
+write-only argument. The migration init container receives that password plus
+the RDS-managed master password, serializes schema/role grants, and exits. The
+long-running API receives only the application password. No operator constructs
+or stores a `DATABASE_URL`.
+
+Increment the protected `DATABASE_APPLICATION_SECRET_VERSION` value through a
+reviewed plan to rotate the application password. The value defaults to `1`;
+changing it writes a new secret version and task-definition revision so the
+migration container updates the database role before the replacement API starts.
 
 Redis uses ElastiCache IAM auth so Terraform never handles an auth token. The
 task injects only the TLS endpoint, cache/user identifiers, and region; WikiOne's

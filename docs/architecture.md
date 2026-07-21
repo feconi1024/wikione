@@ -18,7 +18,8 @@ flowchart LR
     ALB --> API["Non-root API Fargate task"]
     ALB --> Preview["Non-root preview Fargate task"]
     Browser --> Drafts["Local IndexedDB source + base snapshot"]
-    API -->|"accounts over TLS"| RDS["Private multi-AZ PostgreSQL"]
+    Migration["Short-lived migration init container"] -->|"RDS master over TLS"| RDS["Private multi-AZ PostgreSQL"]
+    API -->|"least-privileged account DML over TLS"| RDS
     API -->|"encrypted sessions + preview bundles"| Redis["Private TLS Redis"]
     Preview -->|"preview bundles only"| Redis
     API -->|"fixed anonymous HTTPS APIs"| Wiki["Supported MediaWiki target"]
@@ -95,12 +96,15 @@ the exact HTTPS API/preview origins, Nginx renders CSP from them, and the shell
 writes a same-origin runtime configuration file under the writable `/tmp`
 volume. The image and root filesystem remain read-only.
 
-RDS manages its master password. Terraform supplies non-secret host/port/name/
-user values and ECS injects only the password JSON key; the API constructs and
-validates a TLS PostgreSQL URL in memory. Redis passwords/tokens are never stored:
-API and preview task roles have separate key-scoped ElastiCache users, sign
-15-minute tokens, reauthenticate every ten minutes, and retry transient signing
-failures before expiry.
+RDS manages its master password. Terraform obtains an AWS-generated password as
+an ephemeral value and writes it to KMS-encrypted Secrets Manager through a
+write-only field, so plan/state retain neither database password. Each API task
+runs a short-lived migration init container that uses the master identity under
+an advisory lock, applies schema changes and exact grants, then exits. The main
+API starts only after success and receives only the application role. Redis
+passwords/tokens are never stored: API and preview task roles have separate
+key-scoped ElastiCache users, sign 15-minute tokens, reauthenticate every ten
+minutes, and retry transient signing failures before expiry.
 
 First-party registration derives a salted scrypt password hash and stores the
 account in PostgreSQL. A 256-bit cookie token is HMACed for Redis lookup; its

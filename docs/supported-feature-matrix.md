@@ -38,19 +38,19 @@ capability is intentionally disabled; **unsupported** means no product promise.
 
 ## Release and operations support
 
-| Capability                    | Repository status                    | Evidence still required externally                                      |
-| ----------------------------- | ------------------------------------ | ----------------------------------------------------------------------- |
-| Non-root/read-only OCI images | Implemented and locally smoke-tested | published signed public digests and release-workflow run                |
-| Application/OCI reproduction  | Implemented gate                     | clean independent release-candidate run and retained output             |
-| OpenAPI 3.1 generation/drift  | Implemented gate                     | publish artifact/digest with release                                    |
-| AWS Terraform topology        | Validated and IaC-scanned            | reviewed account plan and successful apply                              |
-| Managed TLS PostgreSQL/Redis  | Declared with readiness wiring       | live private endpoints, failover/readiness, and RDS restore exercise    |
-| Exact DNS/TLS/CSP/CORS        | Declared and locally tested          | live domain/certificate and public black-box probes                     |
-| Dashboards/synthetics/alerts  | Declared                             | provisioned dashboard, healthy synthetic, confirmed operator receipt    |
-| Staging canary/promotion      | Automated                            | protected-environment run and observation record                        |
-| Automatic/operator rollback   | Automated                            | failed-candidate and stored-revision exercises against deployed staging |
-| Configuration-only backup     | Declared KMS/versioned policy        | object-version recovery evidence                                        |
-| Source license                | MIT is currently authoritative       | owner reconciliation with Milestone 3's contradictory GPL request       |
+| Capability                    | Repository status                          | Evidence still required externally                                      |
+| ----------------------------- | ------------------------------------------ | ----------------------------------------------------------------------- |
+| Non-root/read-only OCI images | Implemented and locally smoke-tested       | published signed public digests and release-workflow run                |
+| Application/OCI reproduction  | Implemented gate                           | clean independent release-candidate run and retained output             |
+| OpenAPI 3.1 generation/drift  | Implemented gate                           | publish artifact/digest with release                                    |
+| AWS Terraform topology        | Validated and IaC-scanned                  | reviewed account plan and successful apply                              |
+| Managed TLS PostgreSQL/Redis  | Migration-gated least-privilege/IAM wiring | live private endpoints, failover/readiness, and RDS restore exercise    |
+| Exact DNS/TLS/CSP/CORS        | Declared and locally tested                | live domain/certificate and public black-box probes                     |
+| Dashboards/synthetics/alerts  | Declared                                   | provisioned dashboard, healthy synthetic, confirmed operator receipt    |
+| Staging canary/promotion      | Automated                                  | protected-environment run and observation record                        |
+| Automatic/operator rollback   | Automated                                  | failed-candidate and stored-revision exercises against deployed staging |
+| Configuration-only backup     | Declared KMS/versioned policy              | object-version recovery evidence                                        |
+| Source license                | MIT is currently authoritative             | owner reconciliation with Milestone 3's contradictory GPL request       |
 
 The distinction between WikiOne and Wikimedia identity is non-negotiable. A
 working WikiOne account must never imply a connected Wikimedia account or

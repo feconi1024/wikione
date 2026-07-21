@@ -102,9 +102,13 @@
 - API and preview task roles have separate ElastiCache users and key prefixes.
   Fifteen-minute SigV4 credentials are regenerated before expiry; Redis has no
   long-lived password in Terraform, environment configuration, or state.
-- RDS manages its password. ECS injects only the password JSON key, while
-  non-secret connection fields are derived from the RDS resource; production
-  enforces TLS verification.
+- RDS manages the bootstrap password. Only a short-lived migration init
+  container receives it; the long-running API receives an independently
+  generated least-privileged application password. Terraform carries that
+  password only as an ephemeral/write-only value, not in plan or state.
+- Concurrent migrations take a PostgreSQL advisory lock, reapply restrictive
+  role grants, and gate API startup. Production database connections require
+  TLS, and credential-version changes force a task revision.
 - Session keys remain separately managed secret ARNs. Terraform does not read
   secret values. Operational configuration buckets and SNS use a rotating
   customer-managed KMS key and deny insecure S3 transport.
@@ -132,10 +136,9 @@
 - Redis-backed request limits use atomic, route-scoped counters shared by every
   API task. Client addresses are HMAC-derived before entering transient Redis;
   Redis failure makes the API unready and fails limited requests closed.
-- The dedicated PostgreSQL instance currently supplies its RDS-managed master
-  identity to the API. Secret isolation and private networking constrain it, but
-  a later database bootstrap should replace it with an application role limited
-  to the WikiOne schema.
+- Database migrations must remain backward compatible with the previous image:
+  a container rollback deliberately does not roll back PostgreSQL. Expansion,
+  backfill, and later contraction therefore require separate reviewed releases.
 - Task TLS egress must reach changing AWS/GHCR/MediaWiki addresses and therefore
   cannot be IP-allowlisted with security groups. Fixed application target URLs,
   redirect rejection, TLS, and request limits remain essential; a future egress

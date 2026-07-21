@@ -129,9 +129,9 @@
 
 ## Residual risks and external gates
 
-- Fastify request limits are process-local. Multiple tasks increase the aggregate
-  allowance, so production capacity and alarms must stay within the tested
-  password/load envelope until a reviewed shared adaptive limiter is added.
+- Redis-backed request limits use atomic, route-scoped counters shared by every
+  API task. Client addresses are HMAC-derived before entering transient Redis;
+  Redis failure makes the API unready and fails limited requests closed.
 - The dedicated PostgreSQL instance currently supplies its RDS-managed master
   identity to the API. Secret isolation and private networking constrain it, but
   a later database bootstrap should replace it with an application role limited

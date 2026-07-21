@@ -13,6 +13,7 @@ import { RedisPreviewStore } from '@wikione/preview-store';
 import { createElastiCacheIamCredentialsProvider } from '@wikione/redis-auth';
 
 import { buildApi } from './app.js';
+import { connectRedisRateLimitStore } from './redis-rate-limit-store.js';
 import { readApiRuntimeConfig } from './runtime-config.js';
 
 const config = readApiRuntimeConfig();
@@ -31,6 +32,10 @@ const sessions = await RedisSessionRepository.connect(
     sessionKeyRing,
     redisCredentialsProvider,
 );
+const rateLimitStore = await connectRedisRateLimitStore(
+    redisUrl,
+    redisCredentialsProvider,
+);
 const authentication = new AuthenticationService({
     accounts,
     sessions,
@@ -45,7 +50,9 @@ const app = await buildApi({
         : {}),
     previewBaseUrl: config.previewBaseUrl,
     previewStore,
+    rateLimitStore,
     secureCookies: config.secureCookies,
+    sessionKeyRing,
     ...(config.previewTtlMilliseconds === undefined
         ? {}
         : { previewTtlMilliseconds: config.previewTtlMilliseconds }),

@@ -14,6 +14,7 @@ import Fastify, {
 import {
     AuthenticationService,
     createPasswordHasher,
+    hashLookupValue,
     type SessionKeyRing,
 } from '@wikione/auth-core';
 import {
@@ -48,6 +49,7 @@ import { MemoryPreviewStore, type PreviewStore } from '@wikione/preview-store';
 
 import { registerAuthRoutes } from './auth-routes.js';
 import { openApiSchemas, standardErrorResponses } from './openapi.js';
+import type { RateLimitStoreResource } from './redis-rate-limit-store.js';
 import { findSupportedWiki, supportedWikis } from './wiki-registry.js';
 
 const defaultPreviewTtlMilliseconds = 120_000;
@@ -87,6 +89,7 @@ export interface BuildApiOptions {
     readonly mediaWikiUserAgent?: string;
     readonly now?: () => number;
     readonly randomId?: () => string;
+    readonly rateLimitStore?: RateLimitStoreResource;
     readonly secureCookies?: boolean;
     readonly sessionKeyRing?: SessionKeyRing;
     readonly trustProxy?: boolean | number;
@@ -177,6 +180,11 @@ export async function buildApi(
     await app.register(rateLimit, {
         global: false,
         hook: 'preHandler',
+        keyGenerator: (request) =>
+            hashLookupValue(`rate-limit:v1:${request.ip}`, memoryKeyRing),
+        ...(options.rateLimitStore
+            ? { store: options.rateLimitStore.store }
+            : {}),
     });
 
     app.addHook('onSend', async (_request, reply) => {
@@ -196,7 +204,11 @@ export async function buildApi(
         );
     });
     app.addHook('onClose', async () => {
-        await Promise.all([previewStore.close(), authentication.close()]);
+        await Promise.all([
+            previewStore.close(),
+            authentication.close(),
+            options.rateLimitStore?.close(),
+        ]);
     });
     app.setErrorHandler(async (error, request, reply) => {
         const statusCode = normalizeStatusCode(readErrorStatusCode(error));
@@ -278,6 +290,15 @@ export async function buildApi(
                     name: 'preview-store',
                     check: async () => previewStore.ready(),
                 },
+                ...(options.rateLimitStore
+                    ? [
+                          {
+                              name: 'rate-limit-store',
+                              check: async () =>
+                                  options.rateLimitStore?.ready(),
+                          },
+                      ]
+                    : []),
             ]);
             if (!readiness.ready) {
                 request.log.warn(

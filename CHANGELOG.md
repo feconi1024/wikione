@@ -35,6 +35,8 @@ All notable changes to WikiOne are documented in this file. The format follows
 - A short-lived ElastiCache IAM credentials provider that signs Redis
   connections with the ECS task role, renews credentials before expiry, and
   retries transient signing failures without persisting tokens or AWS secrets.
+- An atomic Redis-backed API rate-limit store that shares privacy-preserving
+  counters across Fargate tasks and participates in readiness checks.
 - Validated AWS infrastructure as code for exact app/API/preview domains,
   private Fargate workloads, managed PostgreSQL and IAM-authenticated Redis,
   managed TLS, KMS-encrypted configuration records, synthetic monitoring,

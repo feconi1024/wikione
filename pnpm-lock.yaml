@@ -85,6 +85,9 @@ importers:
             fastify:
                 specifier: ^5.4.0
                 version: 5.10.0
+            redis:
+                specifier: ^5.0.0
+                version: 5.12.1
         devDependencies:
             tsx:
                 specifier: ^4.20.3

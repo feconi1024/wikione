@@ -38,7 +38,7 @@ resource "aws_elasticache_subnet_group" "redis" {
 
 resource "aws_elasticache_user" "service" {
   for_each = {
-    api     = "on ~wikione:auth:* ~wikione:preview:* +@all -@dangerous"
+    api     = "on ~wikione:auth:* ~wikione:preview:* ~wikione:rate-limit:* +@all -@dangerous"
     preview = "on ~wikione:preview:* +get +ping +@connection"
   }
 

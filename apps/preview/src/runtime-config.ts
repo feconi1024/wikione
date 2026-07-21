@@ -8,7 +8,14 @@ export interface PreviewRuntimeConfig {
     readonly host: string;
     readonly port: number;
     readonly redisUrl: string;
+    readonly redisIam?: RedisIamRuntimeConfig;
     readonly trustProxy: boolean | number;
+}
+
+export interface RedisIamRuntimeConfig {
+    readonly cacheName: string;
+    readonly region: string;
+    readonly userId: string;
 }
 
 type Environment = Readonly<Record<string, string | undefined>>;
@@ -55,6 +62,7 @@ export function readPreviewRuntimeConfig(
     if (production && proxyHops === 0) {
         throw new Error('Production requires TRUST_PROXY_HOPS of at least 1.');
     }
+    const redisIam = readRedisIamConfig(environment, production);
     return {
         editorOrigins,
         host:
@@ -68,8 +76,30 @@ export function readPreviewRuntimeConfig(
             'PREVIEW_PORT',
         ),
         redisUrl,
+        ...(redisIam ? { redisIam } : {}),
         trustProxy: proxyHops === 0 ? false : proxyHops,
     };
+}
+
+function readRedisIamConfig(
+    environment: Environment,
+    required: boolean,
+): RedisIamRuntimeConfig | undefined {
+    const values = {
+        cacheName: environment.REDIS_IAM_CACHE_NAME?.trim(),
+        region: environment.AWS_REGION?.trim(),
+        userId: environment.REDIS_IAM_USER_ID?.trim(),
+    };
+    const present = Object.values(values).filter(Boolean).length;
+    if (present === 0 && !required) {
+        return undefined;
+    }
+    if (present !== 3) {
+        throw new Error(
+            'ElastiCache IAM requires REDIS_IAM_CACHE_NAME, REDIS_IAM_USER_ID, and AWS_REGION together.',
+        );
+    }
+    return values as RedisIamRuntimeConfig;
 }
 
 function assertOrigin(value: string, requireTls: boolean): void {

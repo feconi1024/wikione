@@ -10,6 +10,7 @@ import {
     type SessionPayload,
     type SessionRepository,
 } from '@wikione/auth-core';
+import type { RedisCredentialsProvider } from '@wikione/redis-auth';
 
 const prefix = 'wikione:auth:';
 
@@ -28,12 +29,16 @@ export class RedisSessionRepository implements SessionRepository {
     public static async connect(
         url: string,
         keyRing: SessionKeyRing,
+        credentialsProvider?: RedisCredentialsProvider,
     ): Promise<RedisSessionRepository> {
         const parsed = new URL(url);
         if (parsed.protocol !== 'redis:' && parsed.protocol !== 'rediss:') {
             throw new TypeError('REDIS_URL must use redis:// or rediss://.');
         }
-        const client = createClient({ url });
+        const client = createClient({
+            url,
+            ...(credentialsProvider ? { credentialsProvider } : {}),
+        });
         client.on('error', () => {
             // The API owns availability logs. Session data is never logged here.
         });

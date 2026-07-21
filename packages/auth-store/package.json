@@ -17,6 +17,7 @@
     },
     "dependencies": {
         "@wikione/auth-core": "workspace:*",
+        "@wikione/redis-auth": "workspace:*",
         "postgres": "^3.4.0",
         "redis": "^5.0.0"
     }

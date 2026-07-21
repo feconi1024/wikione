@@ -24,6 +24,7 @@
         "@wikione/mediawiki": "workspace:*",
         "@wikione/preview-document": "workspace:*",
         "@wikione/preview-store": "workspace:*",
+        "@wikione/redis-auth": "workspace:*",
         "fastify": "^5.4.0"
     },
     "devDependencies": {

@@ -10,16 +10,27 @@ import {
     RedisSessionRepository,
 } from '@wikione/auth-store';
 import { RedisPreviewStore } from '@wikione/preview-store';
+import { createElastiCacheIamCredentialsProvider } from '@wikione/redis-auth';
 
 import { buildApi } from './app.js';
 import { readApiRuntimeConfig } from './runtime-config.js';
 
 const config = readApiRuntimeConfig();
 const redisUrl = config.redisUrl;
-const previewStore = await RedisPreviewStore.connect(redisUrl);
+const redisCredentialsProvider = config.redisIam
+    ? createElastiCacheIamCredentialsProvider(config.redisIam)
+    : undefined;
+const previewStore = await RedisPreviewStore.connect(
+    redisUrl,
+    redisCredentialsProvider,
+);
 const sessionKeyRing = readEnvironmentSessionKeys();
 const accounts = await PostgresAccountRepository.connect(config.databaseUrl);
-const sessions = await RedisSessionRepository.connect(redisUrl, sessionKeyRing);
+const sessions = await RedisSessionRepository.connect(
+    redisUrl,
+    sessionKeyRing,
+    redisCredentialsProvider,
+);
 const authentication = new AuthenticationService({
     accounts,
     sessions,

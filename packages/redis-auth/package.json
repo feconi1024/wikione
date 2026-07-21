@@ -1,0 +1,27 @@
+{
+    "name": "@wikione/redis-auth",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Short-lived ElastiCache IAM credentials for WikiOne Redis clients",
+    "license": "MIT",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+    },
+    "dependencies": {
+        "@aws-crypto/sha256-js": "^5.2.0",
+        "@aws-sdk/credential-provider-node": "^3.972.70",
+        "@aws-sdk/util-format-url": "^3.972.35",
+        "@smithy/protocol-http": "^5.5.10",
+        "@smithy/signature-v4": "^5.6.6"
+    }
+}

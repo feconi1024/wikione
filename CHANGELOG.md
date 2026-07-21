@@ -29,6 +29,9 @@
 - A release workflow that scans source and every image, emits provenance and
   SPDX SBOMs, signs image digests and deployment manifests, and carries bounded
   canary, promotion, and rollback intent.
+- A short-lived ElastiCache IAM credentials provider that signs Redis
+  connections with the ECS task role, renews credentials before expiry, and
+  retries transient signing failures without persisting tokens or AWS secrets.
 
 ### Changed
 

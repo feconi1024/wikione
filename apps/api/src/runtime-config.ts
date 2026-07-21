@@ -11,8 +11,15 @@ export interface ApiRuntimeConfig {
     readonly previewBaseUrl: string;
     readonly previewTtlMilliseconds?: number;
     readonly redisUrl: string;
+    readonly redisIam?: RedisIamRuntimeConfig;
     readonly secureCookies: boolean;
     readonly trustProxy: boolean | number;
+}
+
+export interface RedisIamRuntimeConfig {
+    readonly cacheName: string;
+    readonly region: string;
+    readonly userId: string;
 }
 
 type Environment = Readonly<Record<string, string | undefined>>;
@@ -59,6 +66,7 @@ export function readApiRuntimeConfig(
         3,
         'TRUST_PROXY_HOPS',
     );
+    const redisIam = readRedisIamConfig(environment, production);
 
     assertRedisUrl(redisUrl, production);
     assertDatabaseUrl(databaseUrl, production);
@@ -91,9 +99,31 @@ export function readApiRuntimeConfig(
             ? {}
             : { previewTtlMilliseconds }),
         redisUrl,
+        ...(redisIam ? { redisIam } : {}),
         secureCookies,
         trustProxy: proxyHops === 0 ? false : proxyHops,
     };
+}
+
+function readRedisIamConfig(
+    environment: Environment,
+    required: boolean,
+): RedisIamRuntimeConfig | undefined {
+    const values = {
+        cacheName: environment.REDIS_IAM_CACHE_NAME?.trim(),
+        region: environment.AWS_REGION?.trim(),
+        userId: environment.REDIS_IAM_USER_ID?.trim(),
+    };
+    const present = Object.values(values).filter(Boolean).length;
+    if (present === 0 && !required) {
+        return undefined;
+    }
+    if (present !== 3) {
+        throw new Error(
+            'ElastiCache IAM requires REDIS_IAM_CACHE_NAME, REDIS_IAM_USER_ID, and AWS_REGION together.',
+        );
+    }
+    return values as RedisIamRuntimeConfig;
 }
 
 function readValue(

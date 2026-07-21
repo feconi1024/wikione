@@ -10,6 +10,9 @@ const productionEnvironment = {
     EDITOR_ORIGINS: 'https://app.wikione.example',
     PREVIEW_BASE_URL: 'https://preview.wikione.example',
     REDIS_URL: 'rediss://cache.internal:6379',
+    REDIS_IAM_CACHE_NAME: 'wikione-production-redis',
+    REDIS_IAM_USER_ID: 'wikione-production-api',
+    AWS_REGION: 'ap-southeast-1',
     TRUST_PROXY_HOPS: '1',
 } as const;
 
@@ -31,6 +34,11 @@ describe('API runtime configuration', () => {
             port: 3_000,
             previewBaseUrl: 'https://preview.wikione.example',
             redisUrl: 'rediss://cache.internal:6379',
+            redisIam: {
+                cacheName: 'wikione-production-redis',
+                region: 'ap-southeast-1',
+                userId: 'wikione-production-api',
+            },
             secureCookies: true,
             trustProxy: 1,
         });
@@ -58,6 +66,7 @@ describe('API runtime configuration', () => {
         ],
         [{ ...productionEnvironment, COOKIE_SECURE: 'false' }],
         [{ ...productionEnvironment, TRUST_PROXY_HOPS: '0' }],
+        [{ ...productionEnvironment, REDIS_IAM_USER_ID: '' }],
     ])('rejects an insecure production boundary', (environment) => {
         expect(() => readApiRuntimeConfig(environment)).toThrow();
     });

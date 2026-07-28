@@ -50,7 +50,7 @@ capability is intentionally disabled; **unsupported** means no product promise.
 | Staging canary/promotion      | Automated                                  | protected-environment run and observation record                        |
 | Automatic/operator rollback   | Automated                                  | failed-candidate and stored-revision exercises against deployed staging |
 | Configuration-only backup     | Declared KMS/versioned policy              | object-version recovery evidence                                        |
-| Source license                | MIT is currently authoritative             | owner reconciliation with Milestone 3's contradictory GPL request       |
+| Source license                | MIT, settled by ADR 0008                   | none; corresponding source ships under MIT                              |
 
 The distinction between WikiOne and Wikimedia identity is non-negotiable. A
 working WikiOne account must never imply a connected Wikimedia account or

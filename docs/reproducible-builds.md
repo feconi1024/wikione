@@ -80,8 +80,9 @@ session/preview data, user identity, or secret values.
 
 ## Licensing boundary
 
-The current source, packages, and OCI labels are MIT. Milestone 3's GPL request
-conflicts with standing repository governance and requires an explicit owner
-and copyright-holder decision; it is not a build option. Do not relabel a
-release or copy/adapt Wikimedia's GPL CodeMirror extension while MIT remains
-authoritative.
+The source, packages, and OCI labels are MIT, and
+[ADR 0008](decisions/0008-mit-source-release-supersedes-gpl-request.md) settles
+that Milestone 3's "GPL source repository" artifact is delivered by publishing
+complete corresponding source under MIT. Relicensing is not a build option: a
+release must never be relabelled, and Wikimedia's GPL CodeMirror extension must
+never be copied or adapted, without a new superseding ADR.

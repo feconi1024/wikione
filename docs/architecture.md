@@ -157,5 +157,6 @@ The repository contains deployable code, not proof of a live service. Public
 beta still requires owner AWS/DNS/secrets, protected environment approvals,
 public GHCR artifacts, real TLS/domain probes, confirmed alert delivery,
 configuration and RDS restore evidence, canary/rollback exercises, manual
-assistive-technology sign-off, a monitored private security contact, and an
-explicit MIT/GPL governance decision.
+assistive-technology sign-off, and a monitored private security contact. The
+source-license question is settled: [ADR 0008](decisions/0008-mit-source-release-supersedes-gpl-request.md)
+records MIT as authoritative and closes the former GPL governance gate.

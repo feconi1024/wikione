@@ -105,8 +105,6 @@ in the KMS-encrypted versioned configuration bucket.
 
 Before announcement, the owner must:
 
-- explicitly reconcile the Milestone 3 GPL request with the repository's MIT
-  policy and record the authorized result;
 - publish a monitored private security contact;
 - complete the manual screen-reader/zoom/forced-colors accessibility sign-off;
 - retain real domain/TLS/deployment/dashboard/alert/restore/rollback evidence;

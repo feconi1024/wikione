@@ -20,9 +20,11 @@ an implementation note or an unchecked manifest is not sufficient.
 - Production uses distinct editor, API, and cookie-free preview origins. Only
   the preview origin may display target-generated documents.
 - The milestone requests a “GPL source repository,” while the standing
-  repository policy requires MIT and the current source is MIT-licensed. No
-  relicensing occurs without an explicit project-owner decision and copyright
-  authority. All other release work proceeds independently of that gate.
+  repository policy requires MIT and the current source is MIT-licensed. The
+  owner resolved this in favour of MIT;
+  [ADR 0008](decisions/0008-mit-source-release-supersedes-gpl-request.md)
+  records the decision and delivers the artifact as complete corresponding
+  source published under MIT. No relicensing occurs.
 
 ## Workstream A: release-hardening suites
 
@@ -116,6 +118,8 @@ an implementation note or an unchecked manifest is not sufficient.
   SBOMs, attestations, compatibility report, and signed release manifest.
 - Resolve the MIT/GPL governance conflict before the final public source
   release; record the outcome in a superseding ADR and all package metadata.
+  Done: [ADR 0008](decisions/0008-mit-source-release-supersedes-gpl-request.md)
+  supersedes ADR 0004, and every manifest already declares MIT.
 
 ## Acceptance evidence
 

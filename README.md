@@ -45,7 +45,8 @@ Moegirlpedia remains outside the English Wikipedia MVP.
 The repository is deployable but does not itself prove a live public service.
 Public beta still requires project-owned AWS/DNS/secrets, signed public images,
 real deployment/alert/restore/rollback evidence, manual accessibility sign-off,
-a monitored security contact, and an explicit MIT/GPL governance decision.
+and a monitored security contact. WikiOne is released under the MIT License; see
+[ADR 0008](docs/decisions/0008-mit-source-release-supersedes-gpl-request.md).
 
 ## Quick start
 

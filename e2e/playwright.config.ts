@@ -4,6 +4,19 @@ import { defineConfig, devices } from '@playwright/test';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
+/**
+ * WebKit renders and settles the CodeMirror surface far slower than Chromium or
+ * Gecko on Windows and Linux CI hosts. Measured WebKit runs reach roughly 26 s
+ * against the 30 s budget the other engines clear in under 10 s, so the shared
+ * budget failed intermittently purely from host contention. WebKit projects get
+ * their own budgets instead so a real hang is still caught while a slow-but-
+ * correct engine is not reported as a browser-compatibility failure.
+ */
+const webkitTimeouts = {
+    expect: 16_000,
+    test: 90_000,
+};
+
 export default defineConfig({
     expect: { timeout: 8_000 },
     forbidOnly: Boolean(process.env.CI),
@@ -20,6 +33,8 @@ export default defineConfig({
         },
         {
             name: 'webkit-desktop',
+            expect: { timeout: webkitTimeouts.expect },
+            timeout: webkitTimeouts.test,
             use: { ...devices['Desktop Safari'] },
         },
         {
@@ -28,6 +43,8 @@ export default defineConfig({
         },
         {
             name: 'mobile-safari',
+            expect: { timeout: webkitTimeouts.expect },
+            timeout: webkitTimeouts.test,
             use: { ...devices['iPhone 15'] },
         },
     ],

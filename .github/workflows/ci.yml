@@ -9,6 +9,28 @@ permissions:
     contents: read
 
 jobs:
+    # Dependency, secret, and license regressions must fail the pull request
+    # that introduces them. The release workflow repeats these scans against
+    # the tagged tree and the built images before anything is published.
+    scan-source:
+        name: Source secret, vulnerability, and license scan
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  fetch-depth: 0
+            - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+              with:
+                  scan-type: fs
+                  scan-ref: .
+                  scanners: vuln,secret,license
+                  severity: HIGH,CRITICAL
+                  exit-code: '1'
+
     verify:
         runs-on: ubuntu-24.04
         timeout-minutes: 25
@@ -27,6 +49,10 @@ jobs:
                   terraform_wrapper: false
             - run: pnpm install --frozen-lockfile
             - run: pnpm check
+            # Adds the source-boundary audit (live edit adapters, Wikimedia
+            # token storage, unsafe HTML insertion, embedded keys, sensitive
+            # request logging) that `pnpm check` does not run.
+            - run: pnpm test:security
             - run: pnpm build
             - name: Validate Terraform module
               run: |
@@ -44,4 +70,12 @@ jobs:
             - run: docker build --target api --tag wikione-api:ci .
             - run: docker build --target preview --tag wikione-preview:ci .
             - run: docker build --target web --tag wikione-web:ci .
+            # Non-root users, HEALTHCHECKs, SPDX labels, and a read-only
+            # runtime are release requirements, so they gate every push.
+            - name: Verify container hardening
+              env:
+                  API_IMAGE: wikione-api:ci
+                  PREVIEW_IMAGE: wikione-preview:ci
+                  WEB_IMAGE: wikione-web:ci
+              run: pnpm container:smoke
             - run: docker compose config --quiet

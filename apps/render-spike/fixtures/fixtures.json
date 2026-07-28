@@ -3,6 +3,7 @@
         {
             "id": "en-wikipedia",
             "label": "English Wikipedia pinned article",
+            "supportLevel": "supported",
             "wikiBaseUrl": "https://en.wikipedia.org",
             "apiUrl": "https://en.wikipedia.org/w/api.php",
             "title": "Wikipedia",
@@ -16,6 +17,7 @@
         {
             "id": "zh-wikipedia",
             "label": "Chinese Wikipedia pinned article",
+            "supportLevel": "compatibility",
             "wikiBaseUrl": "https://zh.wikipedia.org",
             "apiUrl": "https://zh.wikipedia.org/w/api.php",
             "title": "维基百科",
@@ -28,6 +30,7 @@
         {
             "id": "ar-wikipedia",
             "label": "Arabic Wikipedia pinned article",
+            "supportLevel": "compatibility",
             "wikiBaseUrl": "https://ar.wikipedia.org",
             "apiUrl": "https://ar.wikipedia.org/w/api.php",
             "title": "ويكيبيديا",
@@ -40,6 +43,7 @@
         {
             "id": "media-suite",
             "label": "Controlled image, table, math, reference, audio, and video suite",
+            "supportLevel": "controlled",
             "wikiBaseUrl": "https://en.wikipedia.org",
             "apiUrl": "https://en.wikipedia.org/w/api.php",
             "title": "Project:Sandbox",

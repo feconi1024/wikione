@@ -17,6 +17,7 @@
     },
     "dependencies": {
         "@wikione/contracts": "workspace:*",
+        "@wikione/redis-auth": "workspace:*",
         "redis": "^5.0.0"
     }
 }

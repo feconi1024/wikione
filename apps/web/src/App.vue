@@ -107,6 +107,8 @@ const authOpen = ref(false);
 const reviewOpen = ref(false);
 const accountMenuOpen = ref(false);
 const reviewButton = ref<HTMLButtonElement>();
+const identityButton = ref<HTMLButtonElement>();
+let authReturnTarget: HTMLElement | undefined;
 let initialized = false;
 let draftTimer: ReturnType<typeof setTimeout> | undefined;
 let analysisTimer: ReturnType<typeof setTimeout> | undefined;
@@ -276,6 +278,28 @@ function applyResolvedSource(value: {
 function closeReview(): void {
     reviewOpen.value = false;
     void nextTick(() => reviewButton.value?.focus());
+}
+
+function openAuth(event: MouseEvent): void {
+    authReturnTarget = event.currentTarget as HTMLElement;
+    authOpen.value = true;
+}
+
+function closeAuth(): void {
+    authOpen.value = false;
+    void nextTick(() => {
+        if (authReturnTarget?.isConnected) {
+            authReturnTarget.focus();
+        } else {
+            identityButton.value?.focus();
+        }
+        authReturnTarget = undefined;
+    });
+}
+
+function closeAccountMenu(): void {
+    accountMenuOpen.value = false;
+    void nextTick(() => identityButton.value?.focus());
 }
 
 async function loadWikiRegistry(): Promise<void> {
@@ -610,15 +634,17 @@ function routeFromPath(path: string): AppRoute {
                     v-if="!session.authenticated"
                     class="button button--primary"
                     type="button"
-                    @click="authOpen = true"
+                    @click="openAuth"
                 >
                     Sign in
                 </button>
                 <div v-else class="account-menu">
                     <button
+                        ref="identityButton"
                         class="identity-button"
                         type="button"
                         :aria-expanded="accountMenuOpen"
+                        :aria-label="`${session.account.displayName} account menu`"
                         aria-haspopup="menu"
                         @click="accountMenuOpen = !accountMenuOpen"
                     >
@@ -633,6 +659,7 @@ function routeFromPath(path: string): AppRoute {
                         v-if="accountMenuOpen"
                         class="account-dropdown"
                         role="menu"
+                        @keydown.esc.stop.prevent="closeAccountMenu"
                     >
                         <div>
                             <strong>{{ session.account.displayName }}</strong>
@@ -916,7 +943,7 @@ function routeFromPath(path: string): AppRoute {
             <button
                 class="button button--primary"
                 type="button"
-                @click="authOpen = true"
+                @click="openAuth"
             >
                 Sign in to WikiOne
             </button>
@@ -939,7 +966,7 @@ function routeFromPath(path: string): AppRoute {
 
         <AuthDialog
             :open="authOpen"
-            @close="authOpen = false"
+            @close="closeAuth"
             @authenticated="updateSession"
         />
         <PublishReviewDialog

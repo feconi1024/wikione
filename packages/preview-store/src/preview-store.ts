@@ -8,6 +8,7 @@ export interface PreviewBundle {
 }
 
 export interface PreviewStore {
+    readonly ready: () => Promise<void>;
     readonly put: (
         id: string,
         bundle: PreviewBundle,

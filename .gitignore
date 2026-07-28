@@ -7,6 +7,10 @@ test-results/
 .turbo/
 artifacts/
 *.tsbuildinfo
+.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.*
 
 # Local configuration and secrets
 .env
@@ -15,6 +19,8 @@ artifacts/
 *.local
 *.pem
 *.key
+*.tfvars
+backend.hcl
 
 # Logs and temporary files
 *.log

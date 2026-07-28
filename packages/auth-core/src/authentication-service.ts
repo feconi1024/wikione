@@ -25,6 +25,7 @@ export interface AccountRecord {
 }
 
 export interface AccountRepository {
+    readonly ready: () => Promise<void>;
     readonly create: (account: AccountRecord) => Promise<AccountRecord>;
     readonly findById: (id: string) => Promise<AccountRecord | undefined>;
     readonly findByNormalizedUsername: (
@@ -49,6 +50,7 @@ export type SessionLookup =
     | { readonly state: 'retired'; readonly payload: SessionPayload };
 
 export interface SessionRepository {
+    readonly ready: () => Promise<void>;
     readonly save: (
         token: string,
         payload: SessionPayload,
@@ -370,6 +372,11 @@ export class AuthenticationService {
 
     public async close(): Promise<void> {
         await Promise.all([this.#accounts.close(), this.#sessions.close()]);
+    }
+
+    /** Verifies both durable-account and ephemeral-session dependencies. */
+    public async ready(): Promise<void> {
+        await Promise.all([this.#accounts.ready(), this.#sessions.ready()]);
     }
 
     public assertCsrf(payload: SessionPayload, csrfToken: string): void {

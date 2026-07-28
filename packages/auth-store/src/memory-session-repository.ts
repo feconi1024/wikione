@@ -24,6 +24,10 @@ export class MemorySessionRepository implements SessionRepository {
         this.#now = now;
     }
 
+    public ready(): Promise<void> {
+        return Promise.resolve();
+    }
+
     public save(
         token: string,
         payload: SessionPayload,

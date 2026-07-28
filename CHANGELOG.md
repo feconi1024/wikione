@@ -7,6 +7,58 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Added
 
+- Milestone 3 hardening/public-beta plan and evidence-first completion
+  checklist.
+- ADR 0008 settling the source license: MIT is authoritative, and the
+  milestone's source-release artifact is delivered as complete corresponding
+  source under MIT rather than by relicensing. It supersedes ADR 0004 and
+  retains the boundary against copying Wikimedia's GPL CodeMirror extension.
+- A dated Milestone 3 audit record listing every executed gate with its result,
+  the defects the audit found and fixed, and every gate still unmet for want of
+  cloud credentials, a registry, a live domain, or a human tester.
+- Dedicated accessibility, five-engine browser-compatibility, and deterministic
+  desktop/mobile visual-regression gates with reviewed baselines.
+- A complete OpenAPI 3.1 contract with deterministic artifact generation,
+  semantic drift detection, and documented request, response, and error shapes.
+- A bounded HTTP load gate and production-scrypt concurrency benchmark with
+  explicit latency/error budgets and safeguards against Wikimedia targets.
+- A focused application-security suite for origin, header, body-limit,
+  preview-isolation, and disabled-write boundaries plus a runtime source audit.
+- A deterministic target-API contract gate and sequential anonymous live
+  compatibility report covering the supported, RTL, and controlled-media
+  fixtures without retaining source text.
+- Dependency-aware liveness and readiness probes for the API and isolated
+  preview service, including bounded load coverage and safe failure responses.
+- Browser coverage for composed multilingual input, real HttpOnly cookie
+  storage/removal, superseded preview cancellation, complete splitter keys,
+  and every public-beta review/error accessibility state.
+- Reviewed desktop/mobile visual baselines for account, connected-app,
+  publish-review, and preview-error surfaces.
+- Pinned, non-root OCI images, multi-platform Bake targets, container smoke and
+  reproducibility gates, and a digest-only release contract.
+- A release workflow that scans source and every image, emits provenance and
+  SPDX SBOMs, signs image digests and deployment manifests, and carries bounded
+  canary, promotion, and rollback intent.
+- A short-lived ElastiCache IAM credentials provider that signs Redis
+  connections with the ECS task role, renews credentials before expiry, and
+  retries transient signing failures without persisting tokens or AWS secrets.
+- An atomic Redis-backed API rate-limit store that shares privacy-preserving
+  counters across Fargate tasks and participates in readiness checks.
+- A migration-gated PostgreSQL application role whose AWS-generated password
+  uses Terraform ephemeral/write-only values and never enters Terraform state;
+  the long-running API no longer receives the RDS master credential.
+- Validated AWS infrastructure as code for exact app/API/preview domains,
+  private Fargate workloads, managed PostgreSQL and IAM-authenticated Redis,
+  managed TLS, KMS-encrypted configuration records, synthetic monitoring,
+  dashboards, alerts, and readiness-driven rollback.
+- A protected GitHub OIDC deployment workflow that verifies signed public GHCR
+  digests, plans by immutable manifest, smoke-tests canary and promoted
+  releases, persists the last-known-good record, and restores all services
+  together after a failed apply or public probe.
+- Contributor and security policies plus executable deployment, release,
+  reproducibility, operations, and supported-feature documentation for the
+  public-beta candidate.
+
 - Recoverable Milestone 2 authentication and publishing-preparation plan with
   explicit acceptance evidence and Wikimedia OAuth release boundary.
 - Architecture decision separating first-party WikiOne identity from future
@@ -95,3 +147,43 @@ All notable changes to WikiOne are documented in this file. The format follows
   and decision documentation aligned to the implemented anonymous MVP.
 - Current-state privacy inventory, threat model, API-usage checklist, OAuth
   placeholder status, and clarified fidelity-test boundary.
+
+### Changed
+
+- Modal dialogs now trap and restore keyboard focus, mobile account controls
+  retain an accessible name, CodeMirror uses a WCAG-AA token palette, and its
+  scroll region is keyboard reachable in WebKit.
+- The web development server resolves workspace packages directly to source so
+  browser tests and local edits cannot use stale package builds.
+- Publish-review line numbers meet WCAG AA contrast, scrollable diffs are
+  keyboard reachable, and the mobile review summary wraps without a
+  WebKit-only horizontal scroller.
+- MediaWiki transport now validates response envelopes and content types,
+  rejects redirects, bounds overload retries and `Retry-After`, normalizes
+  legacy API shapes, and never exposes upstream response or source text.
+- API and preview request telemetry now records only bounded operational
+  metadata; request bodies, wikitext, credentials, and client addresses remain
+  outside the structured completion logs.
+- Production startup now fails closed on plaintext data-store transports,
+  non-HTTPS public origins, insecure cookies, and missing trusted-proxy hops.
+- The target-neutral web image now receives its validated API origin at runtime,
+  while the API consumes the RDS-managed password without requiring a
+  pre-provisioned database URL containing a not-yet-created endpoint.
+- CI actions are pinned by commit and CI now validates and security-scans the
+  Terraform module before building the browser and OCI artifacts.
+- CI now gates every push on gitleaks, Trivy vulnerability/secret/license
+  scanning, the source-boundary audit, and the container hardening checks.
+  Previously those ran only in the tag-triggered release workflow, or nowhere.
+
+### Fixed
+
+- `pnpm check` failed at the lint step: the password benchmark imported the
+  `@wikione/auth-core` build output, which does not exist when lint and
+  typecheck run before any build. It now imports the package source entry point.
+- The five-engine browser suite was intermittently red. WebKit needs up to 26 s
+  for the CodeMirror surface against a 30 s budget the other engines clear in
+  under 10 s, so host contention produced spurious compatibility failures.
+  WebKit projects now carry their own timing budgets.
+- Architecture and threat-model documentation now covers the AWS runtime,
+  signed supply chain, protected promotion, configuration-only retention,
+  rollback controls, and explicitly unproven external state.

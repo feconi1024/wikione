@@ -23,12 +23,14 @@ import {
 
 const defaultApiBaseUrl = 'http://127.0.0.1:3000';
 
+interface WikiOneRuntimeConfig {
+    readonly apiBaseUrl?: string;
+}
+
 export class WikiOneApiClient {
     readonly #baseUrl: URL;
 
-    public constructor(
-        baseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl,
-    ) {
+    public constructor(baseUrl = readDefaultApiBaseUrl()) {
         this.#baseUrl = new URL(ensureTrailingSlash(baseUrl));
     }
 
@@ -191,6 +193,19 @@ export class WikiOneApiClient {
         }
         return payload;
     }
+}
+
+function readDefaultApiBaseUrl(): string {
+    const runtimeConfig = (
+        globalThis as typeof globalThis & {
+            readonly __WIKIONE_RUNTIME_CONFIG__?: WikiOneRuntimeConfig;
+        }
+    ).__WIKIONE_RUNTIME_CONFIG__;
+    return (
+        runtimeConfig?.apiBaseUrl ??
+        import.meta.env.VITE_API_BASE_URL ??
+        defaultApiBaseUrl
+    );
 }
 
 export class WikiOneApiError extends Error {

@@ -30,6 +30,7 @@ describe('isolated preview server', () => {
                     {
                         id: 'fixture',
                         label: 'Fixture',
+                        supportLevel: 'controlled',
                         wikiBaseUrl: 'https://en.wikipedia.org',
                         apiUrl: 'https://en.wikipedia.org/w/api.php',
                         title: 'Fixture',

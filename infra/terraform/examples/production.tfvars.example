@@ -1,0 +1,21 @@
+aws_region              = "ap-southeast-1"
+environment             = "production"
+route53_zone_name       = "example.org"
+availability_zones      = ["ap-southeast-1a", "ap-southeast-1b", "ap-southeast-1c"]
+alert_email             = "operations@example.org"
+desired_count           = 2
+db_instance_class       = "db.t4g.medium"
+db_backup_retention_days = 14
+
+# Use only public, immutable GHCR digests produced by the release workflow.
+container_image_digests = {
+    web     = "ghcr.io/feconi1024/wikione-web@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    api     = "ghcr.io/feconi1024/wikione-api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    preview = "ghcr.io/feconi1024/wikione-preview@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}
+
+api_secret_arns = {
+    SESSION_ENCRYPTION_KEY_BASE64    = "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:wikione/production/api/session-encryption"
+    SESSION_LOOKUP_HMAC_KEY_BASE64   = "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:wikione/production/api/session-lookup"
+}
+preview_secret_arns = {}

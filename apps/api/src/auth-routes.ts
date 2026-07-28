@@ -17,6 +17,8 @@ import {
     type SessionStatus,
 } from '@wikione/contracts';
 
+import { openApiSchemas, standardErrorResponses } from './openapi.js';
+
 const wikimediaUnavailable = {
     connected: false,
     reason: 'oauth-registration-pending',
@@ -40,7 +42,56 @@ export function registerAuthRoutes(
 
     app.get(
         '/v1/auth/availability',
-        { schema: { tags: ['authentication'] } },
+        {
+            schema: {
+                tags: ['authentication'],
+                summary: 'Read authentication availability',
+                description:
+                    'First-party WikiOne accounts are available. Wikimedia account connection remains a non-operational public OAuth placeholder.',
+                response: {
+                    200: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['firstParty', 'wikimedia'],
+                        properties: {
+                            firstParty: {
+                                type: 'object',
+                                additionalProperties: false,
+                                required: ['available', 'provider'],
+                                properties: {
+                                    available: { type: 'boolean', const: true },
+                                    provider: {
+                                        type: 'string',
+                                        const: 'wikione',
+                                    },
+                                },
+                            },
+                            wikimedia: {
+                                type: 'object',
+                                additionalProperties: false,
+                                required: ['available', 'reason', 'message'],
+                                properties: {
+                                    available: {
+                                        type: 'boolean',
+                                        const: false,
+                                    },
+                                    reason: {
+                                        type: 'string',
+                                        const: 'oauth-registration-pending',
+                                    },
+                                    message: {
+                                        type: 'string',
+                                        minLength: 1,
+                                        maxLength: 500,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (_request, reply) => {
             noStore(reply);
             return {
@@ -58,8 +109,48 @@ export function registerAuthRoutes(
     app.post(
         '/v1/auth/register',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
-            schema: { tags: ['authentication'] },
+            schema: {
+                tags: ['authentication'],
+                summary: 'Register a WikiOne account',
+                description:
+                    'Creates a first-party account and an HttpOnly session. Wikimedia identity is not created or connected.',
+                headers: {
+                    type: 'object',
+                    properties: {
+                        origin: {
+                            type: 'string',
+                            format: 'uri',
+                            description:
+                                'Required: exact configured WikiOne editor origin.',
+                        },
+                        'x-request-id':
+                            openApiSchemas.commonRequestHeadersSchema
+                                .properties['x-request-id'],
+                    },
+                },
+                body: openApiSchemas.registrationRequest,
+                response: {
+                    201: {
+                        ...openApiSchemas.authenticationSuccess,
+                        headers: {
+                            'set-cookie': {
+                                schema: { type: 'string' },
+                                description:
+                                    'HttpOnly session cookie (Secure __Host-wikione_session in production).',
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                    403: openApiSchemas.errorResponse(
+                        'The request origin is not an allowed WikiOne editor origin.',
+                    ),
+                    409: openApiSchemas.errorResponse(
+                        'The requested username is unavailable.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             if (!allowOrigin(request, reply, options.editorOrigins)) {
@@ -98,8 +189,47 @@ export function registerAuthRoutes(
     app.post(
         '/v1/auth/login',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 8, timeWindow: '1 minute' } },
-            schema: { tags: ['authentication'] },
+            schema: {
+                tags: ['authentication'],
+                summary: 'Sign in to a WikiOne account',
+                description:
+                    'Creates a first-party account session. Authentication failures intentionally do not reveal whether a username exists.',
+                headers: {
+                    type: 'object',
+                    properties: {
+                        origin: {
+                            type: 'string',
+                            format: 'uri',
+                            description:
+                                'Required: exact configured WikiOne editor origin.',
+                        },
+                        'x-request-id':
+                            openApiSchemas.commonRequestHeadersSchema
+                                .properties['x-request-id'],
+                    },
+                },
+                body: openApiSchemas.loginRequest,
+                response: {
+                    200: {
+                        ...openApiSchemas.authenticationSuccess,
+                        headers: {
+                            'set-cookie': {
+                                schema: { type: 'string' },
+                                description: 'HttpOnly session cookie.',
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                    401: openApiSchemas.errorResponse(
+                        'The supplied credentials are invalid.',
+                    ),
+                    403: openApiSchemas.errorResponse(
+                        'The request origin is not an allowed WikiOne editor origin.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             if (!allowOrigin(request, reply, options.editorOrigins)) {
@@ -138,7 +268,18 @@ export function registerAuthRoutes(
 
     app.get(
         '/v1/auth/session',
-        { schema: { tags: ['authentication'] } },
+        {
+            schema: {
+                tags: ['authentication'],
+                summary: 'Read the current session',
+                description:
+                    'Returns anonymous status without a valid session cookie, or the authenticated account identity and CSRF token.',
+                response: {
+                    200: openApiSchemas.sessionStatus,
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (request, reply) => {
             noStore(reply);
             const token = request.cookies[cookieName];
@@ -166,8 +307,34 @@ export function registerAuthRoutes(
     app.post(
         '/v1/auth/refresh',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 12, timeWindow: '1 minute' } },
-            schema: { tags: ['authentication'] },
+            schema: {
+                tags: ['authentication'],
+                summary: 'Refresh the current session',
+                description:
+                    'Rotates the single-use session token after checking the exact Origin, session cookie, and CSRF header.',
+                security: [{ sessionCookie: [] }],
+                headers: openApiSchemas.mutationHeadersSchema,
+                response: {
+                    200: {
+                        ...openApiSchemas.authenticationSuccess,
+                        headers: {
+                            'set-cookie': {
+                                schema: { type: 'string' },
+                                description: 'Rotated HttpOnly session cookie.',
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                    401: openApiSchemas.errorResponse(
+                        'A valid session cookie is required.',
+                    ),
+                    403: openApiSchemas.errorResponse(
+                        'The Origin or CSRF token is invalid.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             const credentials = requireMutationCredentials(
@@ -203,20 +370,79 @@ export function registerAuthRoutes(
 
     app.post(
         '/v1/auth/logout',
-        { schema: { tags: ['authentication'] } },
+        {
+            schema: {
+                tags: ['authentication'],
+                summary: 'Sign out this session',
+                description:
+                    'Revokes the current first-party session and clears its cookie.',
+                security: [{ sessionCookie: [] }],
+                headers: openApiSchemas.mutationHeadersSchema,
+                response: {
+                    204: openApiSchemas.noContent,
+                    ...standardErrorResponses(),
+                    401: openApiSchemas.errorResponse(
+                        'A valid session cookie is required.',
+                    ),
+                    403: openApiSchemas.errorResponse(
+                        'The Origin or CSRF token is invalid.',
+                    ),
+                },
+            },
+        },
         async (request, reply) =>
             closeSessions('current', request, reply, cookieName, options),
     );
     app.post(
         '/v1/auth/logout-all',
-        { schema: { tags: ['authentication'] } },
+        {
+            schema: {
+                tags: ['authentication'],
+                summary: 'Sign out all sessions',
+                description:
+                    'Revokes every active first-party session for the current account and clears this cookie.',
+                security: [{ sessionCookie: [] }],
+                headers: openApiSchemas.mutationHeadersSchema,
+                response: {
+                    204: openApiSchemas.noContent,
+                    ...standardErrorResponses(),
+                    401: openApiSchemas.errorResponse(
+                        'A valid session cookie is required.',
+                    ),
+                    403: openApiSchemas.errorResponse(
+                        'The Origin or CSRF token is invalid.',
+                    ),
+                },
+            },
+        },
         async (request, reply) =>
             closeSessions('all', request, reply, cookieName, options),
     );
 
     app.patch(
         '/v1/account',
-        { schema: { tags: ['authentication'] } },
+        {
+            attachValidation: true,
+            schema: {
+                tags: ['authentication'],
+                summary: 'Update account display name',
+                description:
+                    'Updates the display name of the authenticated first-party account.',
+                security: [{ sessionCookie: [] }],
+                headers: openApiSchemas.mutationHeadersSchema,
+                body: openApiSchemas.accountUpdateRequest,
+                response: {
+                    200: openApiSchemas.authenticationSuccess,
+                    ...standardErrorResponses(),
+                    401: openApiSchemas.errorResponse(
+                        'A valid session cookie is required.',
+                    ),
+                    403: openApiSchemas.errorResponse(
+                        'The Origin or CSRF token is invalid.',
+                    ),
+                },
+            },
+        },
         async (request, reply) => {
             const credentials = requireMutationCredentials(
                 request,
@@ -259,8 +485,35 @@ export function registerAuthRoutes(
     app.post(
         '/v1/account/password',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 5, timeWindow: '5 minutes' } },
-            schema: { tags: ['authentication'] },
+            schema: {
+                tags: ['authentication'],
+                summary: 'Change account password',
+                description:
+                    'Changes the current account password and rotates the current session.',
+                security: [{ sessionCookie: [] }],
+                headers: openApiSchemas.mutationHeadersSchema,
+                body: openApiSchemas.passwordChangeRequest,
+                response: {
+                    200: {
+                        ...openApiSchemas.authenticationSuccess,
+                        headers: {
+                            'set-cookie': {
+                                schema: { type: 'string' },
+                                description: 'Rotated HttpOnly session cookie.',
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                    401: openApiSchemas.errorResponse(
+                        'A valid session cookie and current password are required.',
+                    ),
+                    403: openApiSchemas.errorResponse(
+                        'The Origin or CSRF token is invalid.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             const credentials = requireMutationCredentials(
@@ -308,8 +561,27 @@ export function registerAuthRoutes(
     app.delete(
         '/v1/account',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 3, timeWindow: '15 minutes' } },
-            schema: { tags: ['authentication'] },
+            schema: {
+                tags: ['authentication'],
+                summary: 'Delete the current account',
+                description:
+                    'Permanently deletes the authenticated first-party account after password and DELETE confirmation. This does not affect any Wikimedia account.',
+                security: [{ sessionCookie: [] }],
+                headers: openApiSchemas.mutationHeadersSchema,
+                body: openApiSchemas.accountDeletionRequest,
+                response: {
+                    204: openApiSchemas.noContent,
+                    ...standardErrorResponses(),
+                    401: openApiSchemas.errorResponse(
+                        'A valid session cookie and password are required.',
+                    ),
+                    403: openApiSchemas.errorResponse(
+                        'The Origin or CSRF token is invalid.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             const credentials = requireMutationCredentials(
@@ -352,7 +624,20 @@ export function registerAuthRoutes(
     ]) {
         app.get(
             path,
-            { schema: { tags: ['authentication'] } },
+            {
+                schema: {
+                    tags: ['authentication'],
+                    summary: 'Wikimedia OAuth placeholder',
+                    description:
+                        'Public Wikimedia OAuth registration has not been approved. This route never starts or completes an authorization flow.',
+                    response: {
+                        503: openApiSchemas.errorResponse(
+                            'Wikimedia OAuth registration is pending.',
+                        ),
+                        ...standardErrorResponses(),
+                    },
+                },
+            },
             async (request, reply) =>
                 sendApiError(
                     reply,

@@ -2,14 +2,18 @@
 
 ## Method
 
-On 17 July 2026, `pnpm test:live` fetched three immutable Wikipedia revisions
+On 19 July 2026, `pnpm test:live` fetched three immutable Wikipedia revisions
 and parsed a controlled media fixture through English Wikipedia. Requests were
-sequential, anonymous, identified, and included `maxlag=5`.
+sequential, anonymous, identified, included `maxlag=5`, and used a bounded
+30-second request timeout. The source-free result is retained in the
+[Milestone 3 compatibility report](evidence/milestone-3-compatibility-2026-07-19.json).
 
 Every response was converted to a standalone Vector 2022 article document using
 the target's `headhtml` metadata, parser HTML, `jsconfigvars`, modules, and style
 modules. Validation inspected the final HTML structure rather than the source.
-Artifacts are reproducible and intentionally not committed.
+Rendered HTML and fetched wikitext artifacts are reproducible and intentionally
+not committed. The machine-readable report retains only revision metadata,
+module names, feature counts, and validation outcomes.
 
 ## Pinned revisions
 
@@ -47,10 +51,9 @@ RTL.
   site gadgets remain isolated to preserve standard published behavior.
 - Raw `headhtml` is not trusted or reproduced. This can omit non-content chrome,
   which is outside the MVP fidelity promise.
-- Pixel-diff comparison and real-target browser interaction baselines remain
-  later work. Milestone 1 browser tests verify editor/preview orchestration with
-  intercepted services; this live baseline proves target parser/module/media
-  structure and runnable output.
+- Deterministic visual regression uses intercepted first-party services rather
+  than unstable live pages. This live baseline separately proves current target
+  parser/module/media structure and runnable output.
 
 ## Reproduction
 
@@ -59,6 +62,11 @@ pnpm install
 pnpm test:live
 pnpm spike:serve
 ```
+
+Set `WIKIONE_COMPAT_REPORT_PATH` to a repository-relative path when retaining a
+new release report. The command builds the exact workspace dependencies before
+contacting the APIs, and fails when a fixture is absent or violates its feature
+thresholds.
 
 Open `/previews/media-suite`, `/previews/en-wikipedia`,
 `/previews/zh-wikipedia`, or `/previews/ar-wikipedia` on the preview server.

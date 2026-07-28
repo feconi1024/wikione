@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "WikiOne OCI release manifest",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["version", "revision", "publishedAt", "images"],
+    "properties": {
+        "version": {
+            "type": "string"
+        },
+        "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "images": {
+            "type": "object",
+            "required": ["api", "preview", "web"],
+            "additionalProperties": false,
+            "properties": {
+                "api": {
+                    "type": "string",
+                    "pattern": "^ghcr\\.io/.+@sha256:[0-9a-f]{64}$"
+                },
+                "preview": {
+                    "type": "string",
+                    "pattern": "^ghcr\\.io/.+@sha256:[0-9a-f]{64}$"
+                },
+                "web": {
+                    "type": "string",
+                    "pattern": "^ghcr\\.io/.+@sha256:[0-9a-f]{64}$"
+                }
+            }
+        }
+    }
+}

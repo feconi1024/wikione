@@ -14,6 +14,7 @@ import Fastify, {
 import {
     AuthenticationService,
     createPasswordHasher,
+    hashLookupValue,
     type SessionKeyRing,
 } from '@wikione/auth-core';
 import {
@@ -47,6 +48,8 @@ import { createPreviewDocument } from '@wikione/preview-document';
 import { MemoryPreviewStore, type PreviewStore } from '@wikione/preview-store';
 
 import { registerAuthRoutes } from './auth-routes.js';
+import { openApiSchemas, standardErrorResponses } from './openapi.js';
+import type { RateLimitStoreResource } from './redis-rate-limit-store.js';
 import { findSupportedWiki, supportedWikis } from './wiki-registry.js';
 
 const defaultPreviewTtlMilliseconds = 120_000;
@@ -86,8 +89,10 @@ export interface BuildApiOptions {
     readonly mediaWikiUserAgent?: string;
     readonly now?: () => number;
     readonly randomId?: () => string;
+    readonly rateLimitStore?: RateLimitStoreResource;
     readonly secureCookies?: boolean;
     readonly sessionKeyRing?: SessionKeyRing;
+    readonly trustProxy?: boolean | number;
 }
 
 /** Creates the API without opening a socket so tests can use Fastify injection. */
@@ -129,7 +134,7 @@ export async function buildApi(
         logController: new LogController({ disableRequestLogging: true }),
         logger: options.logger ?? false,
         requestIdHeader: 'x-request-id',
-        trustProxy: false,
+        trustProxy: options.trustProxy ?? false,
     });
 
     await app.register(cookie);
@@ -141,6 +146,17 @@ export async function buildApi(
                 description:
                     'Source loading and preview compilation for the WikiOne editor.',
                 version: '0.1.0',
+            },
+            components: {
+                securitySchemes: {
+                    sessionCookie: {
+                        type: 'apiKey',
+                        in: 'cookie',
+                        name: '__Host-wikione_session',
+                        description:
+                            'HttpOnly WikiOne session cookie. In local development its name is wikione_session_local.',
+                    },
+                },
             },
             tags: [
                 { name: 'meta', description: 'Service metadata and health.' },
@@ -164,14 +180,35 @@ export async function buildApi(
     await app.register(rateLimit, {
         global: false,
         hook: 'preHandler',
+        keyGenerator: (request) =>
+            hashLookupValue(`rate-limit:v1:${request.ip}`, memoryKeyRing),
+        ...(options.rateLimitStore
+            ? { store: options.rateLimitStore.store }
+            : {}),
     });
 
     app.addHook('onSend', async (_request, reply) => {
-        reply.header('X-Content-Type-Options', 'nosniff');
-        reply.header('Referrer-Policy', 'no-referrer');
+        setApiSecurityHeaders(reply);
+    });
+    app.addHook('onResponse', async (request, reply) => {
+        request.log.info(
+            {
+                durationMs: Number(reply.elapsedTime.toFixed(2)),
+                event: 'request-complete',
+                method: request.method,
+                requestId: request.id,
+                route: request.routeOptions.url,
+                statusCode: reply.statusCode,
+            },
+            'Request completed.',
+        );
     });
     app.addHook('onClose', async () => {
-        await Promise.all([previewStore.close(), authentication.close()]);
+        await Promise.all([
+            previewStore.close(),
+            authentication.close(),
+            options.rateLimitStore?.close(),
+        ]);
     });
     app.setErrorHandler(async (error, request, reply) => {
         const statusCode = normalizeStatusCode(readErrorStatusCode(error));
@@ -204,24 +241,79 @@ export async function buildApi(
         );
     });
 
-    app.get(
-        '/healthz',
-        {
-            schema: {
-                tags: ['meta'],
-                response: {
-                    200: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['status'],
-                        properties: {
-                            status: { type: 'string', const: 'ok' },
+    for (const path of ['/healthz', '/livez'] as const) {
+        app.get(
+            path,
+            {
+                schema: {
+                    tags: ['meta'],
+                    summary: 'Check service liveness',
+                    description:
+                        'Unauthenticated process liveness endpoint. It does not contact PostgreSQL, Redis, or Wikimedia.',
+                    response: {
+                        200: {
+                            type: 'object',
+                            additionalProperties: false,
+                            required: ['status'],
+                            properties: {
+                                status: { type: 'string', const: 'ok' },
+                            },
                         },
                     },
                 },
             },
+            () => ({ status: 'ok' as const }),
+        );
+    }
+
+    app.get(
+        '/readyz',
+        {
+            schema: {
+                tags: ['meta'],
+                summary: 'Check service readiness',
+                description:
+                    'Checks account/session and preview-store dependencies without contacting Wikimedia.',
+                response: {
+                    200: readinessResponseSchema('ready'),
+                    503: readinessResponseSchema('not-ready'),
+                },
+            },
         },
-        () => ({ status: 'ok' as const }),
+        async (request, reply) => {
+            const readiness = await runReadinessChecks([
+                {
+                    name: 'authentication-store',
+                    check: async () => authentication.ready(),
+                },
+                {
+                    name: 'preview-store',
+                    check: async () => previewStore.ready(),
+                },
+                ...(options.rateLimitStore
+                    ? [
+                          {
+                              name: 'rate-limit-store',
+                              check: async () =>
+                                  options.rateLimitStore?.ready(),
+                          },
+                      ]
+                    : []),
+            ]);
+            if (!readiness.ready) {
+                request.log.warn(
+                    { checks: readiness.checks, event: 'readiness-failed' },
+                    'A required API dependency is unavailable.',
+                );
+                reply.header('Retry-After', '5').status(503);
+            }
+            return {
+                status: readiness.ready
+                    ? ('ready' as const)
+                    : ('not-ready' as const),
+                checks: readiness.checks,
+            };
+        },
     );
 
     app.get(
@@ -229,6 +321,9 @@ export async function buildApi(
         {
             schema: {
                 tags: ['meta'],
+                summary: 'Read API contract metadata',
+                description:
+                    'Reports the public API version and shared contract package.',
                 response: {
                     200: {
                         type: 'object',
@@ -253,6 +348,9 @@ export async function buildApi(
         {
             schema: {
                 tags: ['editor'],
+                summary: 'List enabled wikis',
+                description:
+                    'Returns the fixed set of MediaWiki targets enabled by this deployment. The response is publicly cacheable for five minutes.',
                 response: {
                     200: {
                         type: 'array',
@@ -272,12 +370,20 @@ export async function buildApi(
         {
             schema: {
                 tags: ['editor'],
-                body: pageSourceRequestJsonSchema,
+                summary: 'Load a page source',
+                description:
+                    'Fetches the current wikitext source and base revision. A missing page is represented as exists=false with an empty source.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.pageSourceRequest,
                 response: {
-                    200: pageSourceJsonSchema,
-                    400: apiErrorJsonSchema,
-                    422: apiErrorJsonSchema,
-                    502: apiErrorJsonSchema,
+                    200: openApiSchemas.pageSource,
+                    ...standardErrorResponses(),
+                    422: openApiSchemas.errorResponse(
+                        'The target page is not wikitext.',
+                    ),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not process the source request.',
+                    ),
                 },
             },
         },
@@ -358,11 +464,17 @@ export async function buildApi(
             },
             schema: {
                 tags: ['editor'],
-                body: previewRequestJsonSchema,
+                summary: 'Compile a source preview',
+                description:
+                    'Compiles bounded wikitext through MediaWiki and returns an opaque, temporary render URL. Preview source is never published.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.previewRequest,
                 response: {
-                    200: previewResultJsonSchema,
-                    400: apiErrorJsonSchema,
-                    502: apiErrorJsonSchema,
+                    200: openApiSchemas.previewResult,
+                    ...standardErrorResponses(),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not compile the preview.',
+                    ),
                 },
             },
         },
@@ -437,8 +549,26 @@ export async function buildApi(
     app.post(
         '/v1/pages/revision-check',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
-            schema: { tags: ['editor'] },
+            schema: {
+                tags: ['editor'],
+                summary: 'Check a page revision',
+                description:
+                    'Compares an optional base revision with the latest wikitext revision before a publish review.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.revisionCheckRequest,
+                response: {
+                    200: openApiSchemas.revisionCheckResult,
+                    ...standardErrorResponses(),
+                    422: openApiSchemas.errorResponse(
+                        'The target page is not wikitext.',
+                    ),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not process the revision check.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             const parsed = revisionCheckRequestSchema.safeParse(request.body);
@@ -518,7 +648,34 @@ export async function buildApi(
 
     app.get(
         '/v1/publish/capability',
-        { schema: { tags: ['editor'] } },
+        {
+            schema: {
+                tags: ['editor'],
+                summary: 'Read publishing availability',
+                description:
+                    'Publishing is intentionally disabled until Wikimedia approves the public OAuth application.',
+                response: {
+                    200: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['available', 'reason', 'message'],
+                        properties: {
+                            available: { type: 'boolean', const: false },
+                            reason: {
+                                type: 'string',
+                                const: 'oauth-registration-pending',
+                            },
+                            message: {
+                                type: 'string',
+                                minLength: 1,
+                                maxLength: 500,
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (_request, reply) => {
             reply.header('Cache-Control', 'no-store');
             return publishCapabilitySchema.parse({
@@ -533,8 +690,26 @@ export async function buildApi(
     app.post(
         '/v1/publish/prepare',
         {
+            attachValidation: true,
             config: { rateLimit: { max: 15, timeWindow: '1 minute' } },
-            schema: { tags: ['editor'] },
+            schema: {
+                tags: ['editor'],
+                summary: 'Prepare a reviewed publish',
+                description:
+                    'Performs a non-mutating latest-revision check and reports whether a create/update is ready or a three-way merge is required.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.publishRequest,
+                response: {
+                    200: openApiSchemas.publishPreparationResult,
+                    ...standardErrorResponses(),
+                    422: openApiSchemas.errorResponse(
+                        'The target page is not wikitext.',
+                    ),
+                    502: openApiSchemas.errorResponse(
+                        'MediaWiki could not process the publish preparation.',
+                    ),
+                },
+            },
         },
         async (request, reply) => {
             const parsed = publishPreparationRequestSchema.safeParse(
@@ -616,7 +791,23 @@ export async function buildApi(
 
     app.post(
         '/v1/publish',
-        { schema: { tags: ['editor'] } },
+        {
+            attachValidation: true,
+            schema: {
+                tags: ['editor'],
+                summary: 'Submit a publish',
+                description:
+                    'Placeholder endpoint. It never submits an edit while public Wikimedia OAuth registration is pending.',
+                headers: openApiSchemas.commonRequestHeadersSchema,
+                body: openApiSchemas.publishRequest,
+                response: {
+                    503: openApiSchemas.errorResponse(
+                        'Wikimedia OAuth registration is pending; no edit was submitted.',
+                    ),
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (request, reply) =>
             sendError(
                 reply,
@@ -635,7 +826,33 @@ export async function buildApi(
 
     app.get(
         '/openapi.json',
-        { schema: { hide: true } },
+        {
+            schema: {
+                tags: ['meta'],
+                summary: 'Get the OpenAPI description',
+                description:
+                    "Returns this service's generated OpenAPI 3.1 document. The repository tracks the same document at openapi/wikione.openapi.json.",
+                response: {
+                    200: {
+                        type: 'object',
+                        additionalProperties: true,
+                        required: ['openapi', 'info', 'paths'],
+                        properties: {
+                            openapi: { type: 'string', const: '3.1.0' },
+                            info: {
+                                type: 'object',
+                                additionalProperties: true,
+                            },
+                            paths: {
+                                type: 'object',
+                                additionalProperties: true,
+                            },
+                        },
+                    },
+                    ...standardErrorResponses(),
+                },
+            },
+        },
         async (_request, reply) => {
             await reply.type('application/json').send(app.swagger());
         },
@@ -765,6 +982,76 @@ function isLoopbackHost(hostname: string): boolean {
     );
 }
 
+function setApiSecurityHeaders(reply: FastifyReply): void {
+    if (!reply.hasHeader('Cache-Control')) {
+        reply.header('Cache-Control', 'private, no-store, max-age=0');
+    }
+    reply.header(
+        'Content-Security-Policy',
+        "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+    );
+    reply.header('Cross-Origin-Opener-Policy', 'same-origin');
+    reply.header('Cross-Origin-Resource-Policy', 'same-site');
+    reply.header(
+        'Permissions-Policy',
+        'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
+    );
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains',
+    );
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('X-XSS-Protection', '0');
+}
+
+interface ReadinessCheck {
+    readonly name: string;
+    readonly check: () => Promise<void>;
+}
+
+function readinessResponseSchema(status: 'ready' | 'not-ready') {
+    return {
+        type: 'object',
+        additionalProperties: false,
+        required: ['status', 'checks'],
+        properties: {
+            status: { type: 'string', const: status },
+            checks: {
+                type: 'object',
+                additionalProperties: {
+                    type: 'string',
+                    enum: ['ready', 'failed'],
+                },
+            },
+        },
+    } as const;
+}
+
+async function runReadinessChecks(checks: readonly ReadinessCheck[]): Promise<{
+    readonly ready: boolean;
+    readonly checks: Readonly<Record<string, 'ready' | 'failed'>>;
+}> {
+    const results = await Promise.all(
+        checks.map(async ({ check, name }) => {
+            try {
+                await check();
+                return [name, 'ready'] as const;
+            } catch {
+                return [name, 'failed'] as const;
+            }
+        }),
+    );
+    const statuses = Object.fromEntries(results) as Readonly<
+        Record<string, 'ready' | 'failed'>
+    >;
+    return {
+        ready: Object.values(statuses).every((status) => status === 'ready'),
+        checks: statuses,
+    };
+}
+
 function normalizeStatusCode(value: number | undefined): number {
     if (value === 400 || value === 413 || value === 429) {
         return value;
@@ -784,17 +1071,6 @@ function readErrorStatusCode(error: unknown): number | undefined {
     return undefined;
 }
 
-const apiErrorJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['code', 'message'],
-    properties: {
-        code: { type: 'string' },
-        message: { type: 'string' },
-        requestId: { type: 'string' },
-    },
-} as const;
-
 const wikiDescriptorJsonSchema = {
     type: 'object',
     additionalProperties: false,
@@ -813,92 +1089,5 @@ const wikiDescriptorJsonSchema = {
         direction: { type: 'string', enum: ['ltr', 'rtl'] },
         baseUrl: { type: 'string', format: 'uri' },
         apiUrl: { type: 'string', format: 'uri' },
-    },
-} as const;
-
-const pageSourceRequestJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['wikiId', 'title'],
-    properties: {
-        wikiId: { type: 'string' },
-        title: { type: 'string', minLength: 1, maxLength: 512 },
-    },
-} as const;
-
-const pageSourceJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: [
-        'wikiId',
-        'title',
-        'exists',
-        'contentModel',
-        'source',
-        'fetchedAt',
-    ],
-    properties: {
-        wikiId: { type: 'string' },
-        title: { type: 'string' },
-        exists: { type: 'boolean' },
-        contentModel: { type: 'string', const: 'wikitext' },
-        source: { type: 'string' },
-        baseRevision: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['id', 'timestamp'],
-            properties: {
-                id: { type: 'integer' },
-                timestamp: { type: 'string', format: 'date-time' },
-            },
-        },
-        fetchedAt: { type: 'string', format: 'date-time' },
-    },
-} as const;
-
-const previewRequestJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['wikiId', 'title', 'source', 'contentModel', 'clientRevision'],
-    properties: {
-        wikiId: { type: 'string' },
-        title: { type: 'string', minLength: 1, maxLength: 512 },
-        source: { type: 'string', maxLength: 500_000 },
-        contentModel: { type: 'string', const: 'wikitext' },
-        clientRevision: { type: 'integer', minimum: 0 },
-    },
-} as const;
-
-const previewResultJsonSchema = {
-    type: 'object',
-    additionalProperties: false,
-    required: [
-        'clientRevision',
-        'renderUrl',
-        'warnings',
-        'generatedAt',
-        'expiresAt',
-    ],
-    properties: {
-        clientRevision: { type: 'integer' },
-        renderUrl: { type: 'string', format: 'uri' },
-        warnings: {
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['severity', 'message'],
-                properties: {
-                    severity: {
-                        type: 'string',
-                        enum: ['warning', 'error'],
-                    },
-                    code: { type: 'string' },
-                    message: { type: 'string' },
-                },
-            },
-        },
-        generatedAt: { type: 'string', format: 'date-time' },
-        expiresAt: { type: 'string', format: 'date-time' },
     },
 } as const;

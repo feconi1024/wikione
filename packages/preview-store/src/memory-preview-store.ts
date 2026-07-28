@@ -17,6 +17,10 @@ export class MemoryPreviewStore implements PreviewStore {
         this.#now = now;
     }
 
+    public ready(): Promise<void> {
+        return Promise.resolve();
+    }
+
     public put(
         id: string,
         bundle: PreviewBundle,

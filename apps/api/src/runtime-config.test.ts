@@ -1,0 +1,116 @@
+import { describe, expect, it } from 'vitest';
+
+import { readApiRuntimeConfig } from './runtime-config.js';
+
+const productionEnvironment = {
+    NODE_ENV: 'production',
+    COOKIE_SECURE: 'true',
+    DATABASE_URL:
+        'postgres://wikione:secret@database.internal:5432/wikione?sslmode=verify-full',
+    EDITOR_ORIGINS: 'https://app.wikione.example',
+    PREVIEW_BASE_URL: 'https://preview.wikione.example',
+    REDIS_URL: 'rediss://cache.internal:6379',
+    REDIS_IAM_CACHE_NAME: 'wikione-production-redis',
+    REDIS_IAM_USER_ID: 'wikione-production-api',
+    AWS_REGION: 'ap-southeast-1',
+    TRUST_PROXY_HOPS: '1',
+} as const;
+
+describe('API runtime configuration', () => {
+    it('keeps explicit development-only local defaults', () => {
+        expect(readApiRuntimeConfig({})).toMatchObject({
+            host: '127.0.0.1',
+            port: 3_000,
+            secureCookies: false,
+            trustProxy: false,
+        });
+    });
+
+    it('accepts an exact TLS production boundary', () => {
+        expect(readApiRuntimeConfig(productionEnvironment)).toEqual({
+            databaseUrl: productionEnvironment.DATABASE_URL,
+            editorOrigins: ['https://app.wikione.example'],
+            host: '0.0.0.0',
+            port: 3_000,
+            previewBaseUrl: 'https://preview.wikione.example',
+            redisUrl: 'rediss://cache.internal:6379',
+            redisIam: {
+                cacheName: 'wikione-production-redis',
+                region: 'ap-southeast-1',
+                userId: 'wikione-production-api',
+            },
+            secureCookies: true,
+            trustProxy: 1,
+        });
+    });
+
+    it('constructs a TLS URL from managed RDS connection components', () => {
+        const environment = {
+            ...productionEnvironment,
+            DATABASE_URL: '',
+            DATABASE_HOST: 'database.internal',
+            DATABASE_PORT: '5432',
+            DATABASE_NAME: 'wikione',
+            DATABASE_USER: 'wiki-one',
+            DATABASE_PASSWORD: 'secret:/?#[]@',
+        };
+
+        const config = readApiRuntimeConfig(environment);
+        const databaseUrl = new URL(config.databaseUrl);
+        expect(databaseUrl.hostname).toBe('database.internal');
+        expect(databaseUrl.port).toBe('5432');
+        expect(databaseUrl.username).toBe('wiki-one');
+        expect(databaseUrl.password).toBe('secret%3A%2F%3F%23%5B%5D%40');
+        expect(databaseUrl.pathname).toBe('/wikione');
+        expect(databaseUrl.searchParams.get('sslmode')).toBe('verify-full');
+    });
+
+    it.each([
+        [{ ...productionEnvironment, REDIS_URL: 'redis://cache:6379' }],
+        [
+            {
+                ...productionEnvironment,
+                DATABASE_URL: 'postgres://wikione:secret@database:5432/wikione',
+            },
+        ],
+        [
+            {
+                ...productionEnvironment,
+                EDITOR_ORIGINS: 'http://app.wikione.example',
+            },
+        ],
+        [
+            {
+                ...productionEnvironment,
+                PREVIEW_BASE_URL: 'http://preview.wikione.example',
+            },
+        ],
+        [{ ...productionEnvironment, COOKIE_SECURE: 'false' }],
+        [{ ...productionEnvironment, TRUST_PROXY_HOPS: '0' }],
+        [{ ...productionEnvironment, REDIS_IAM_USER_ID: '' }],
+        [
+            {
+                ...productionEnvironment,
+                DATABASE_URL: '',
+                DATABASE_HOST: 'database.internal',
+            },
+        ],
+    ])('rejects an insecure production boundary', (environment) => {
+        expect(() => readApiRuntimeConfig(environment)).toThrow();
+    });
+
+    it('does not include a secret URL in a validation error', () => {
+        const secret = 'not-a-url-with-a-password';
+        let thrown: unknown;
+        try {
+            readApiRuntimeConfig({
+                ...productionEnvironment,
+                DATABASE_URL: secret,
+            });
+        } catch (error) {
+            thrown = error;
+        }
+        expect(thrown).toBeInstanceOf(Error);
+        expect((thrown as Error).message).not.toContain(secret);
+    });
+});

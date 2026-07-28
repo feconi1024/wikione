@@ -14,6 +14,7 @@ import {
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import { WikiOneApiClient } from '../api.js';
+import { focusModalControl, trapModalFocus } from '../modal-focus.js';
 
 const props = defineProps<{
     readonly open: boolean;
@@ -47,6 +48,8 @@ const choices = ref<Record<number, 'ours' | 'theirs' | 'manual'>>({});
 const manualSources = ref<Record<number, string>>({});
 const error = ref<NormalizedPublishError>();
 const editingStartedAt = ref(new Date().toISOString());
+const closeButton = ref<HTMLButtonElement>();
+const dialog = ref<HTMLElement>();
 const review = computed(() =>
     createReviewModel(props.baseSource, props.source),
 );
@@ -78,20 +81,25 @@ watch(
             manualSources.value = {};
             error.value = undefined;
             editingStartedAt.value = new Date().toISOString();
-            window.addEventListener('keydown', closeOnEscape);
+            void focusModalControl(closeButton);
+            window.addEventListener('keydown', handleDialogKeydown);
         } else {
-            window.removeEventListener('keydown', closeOnEscape);
+            window.removeEventListener('keydown', handleDialogKeydown);
         }
     },
 );
 
-onBeforeUnmount(() => window.removeEventListener('keydown', closeOnEscape));
+onBeforeUnmount(() =>
+    window.removeEventListener('keydown', handleDialogKeydown),
+);
 
-function closeOnEscape(event: KeyboardEvent): void {
+function handleDialogKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
         event.preventDefault();
         emit('close');
+        return;
     }
+    trapModalFocus(event, dialog.value);
 }
 
 async function prepare(): Promise<void> {
@@ -226,6 +234,7 @@ function errorTitle(category: NormalizedPublishError['category']): string {
         @click.self="emit('close')"
     >
         <section
+            ref="dialog"
             class="modal-card review-dialog"
             role="dialog"
             aria-modal="true"
@@ -237,6 +246,7 @@ function errorTitle(category: NormalizedPublishError['category']): string {
                     <h2 id="review-title">Review changes to {{ title }}</h2>
                 </div>
                 <button
+                    ref="closeButton"
                     class="modal-close"
                     type="button"
                     aria-label="Close review"
@@ -256,7 +266,11 @@ function errorTitle(category: NormalizedPublishError['category']): string {
             </div>
 
             <div class="review-body">
-                <section class="diff-panel" aria-labelledby="diff-title">
+                <section
+                    class="diff-panel"
+                    aria-labelledby="diff-title"
+                    tabindex="0"
+                >
                     <h3 id="diff-title">Source changes</h3>
                     <p v-if="!review.changed" class="empty-message">
                         There are no source changes to review.

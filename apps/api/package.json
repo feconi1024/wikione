@@ -8,6 +8,8 @@
     "scripts": {
         "build": "tsc -p tsconfig.json",
         "dev": "tsx watch src/server.ts",
+        "openapi:generate": "tsx src/generate-openapi.ts",
+        "openapi:check": "vitest run --root ../.. apps/api/src/openapi-drift.test.ts",
         "start": "node dist/server.js",
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
@@ -22,7 +24,9 @@
         "@wikione/mediawiki": "workspace:*",
         "@wikione/preview-document": "workspace:*",
         "@wikione/preview-store": "workspace:*",
-        "fastify": "^5.4.0"
+        "@wikione/redis-auth": "workspace:*",
+        "fastify": "^5.4.0",
+        "redis": "^5.0.0"
     },
     "devDependencies": {
         "tsx": "^4.20.3"

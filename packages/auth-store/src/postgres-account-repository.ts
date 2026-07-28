@@ -3,6 +3,7 @@ import postgres, { type Sql } from 'postgres';
 import type { AccountRecord, AccountRepository } from '@wikione/auth-core';
 
 import { AccountConflictError } from './memory-account-repository.js';
+import { migrateAccountSchema } from './postgres-account-schema.js';
 
 interface AccountRow {
     readonly id: string;
@@ -14,6 +15,10 @@ interface AccountRow {
     readonly updated_at: Date;
 }
 
+export interface PostgresAccountRepositoryConnectOptions {
+    readonly migrate?: boolean;
+}
+
 export class PostgresAccountRepository implements AccountRepository {
     readonly #sql: Sql;
 
@@ -23,6 +28,7 @@ export class PostgresAccountRepository implements AccountRepository {
 
     public static async connect(
         url: string,
+        options: PostgresAccountRepositoryConnectOptions = {},
     ): Promise<PostgresAccountRepository> {
         const parsed = new URL(url);
         if (
@@ -35,37 +41,19 @@ export class PostgresAccountRepository implements AccountRepository {
         }
         const sql = postgres(url, { max: 10, idle_timeout: 20 });
         const repository = new PostgresAccountRepository(sql);
-        await repository.migrate();
+        if (options.migrate ?? true) {
+            await repository.migrate();
+        }
         return repository;
+    }
+
+    public async ready(): Promise<void> {
+        await this.#sql`SELECT 1 AS ready`;
     }
 
     public async migrate(): Promise<void> {
         await this.#sql.begin(async (sql) => {
-            await sql`
-                CREATE TABLE IF NOT EXISTS wikione_schema_migrations (
-                    version integer PRIMARY KEY,
-                    applied_at timestamptz NOT NULL DEFAULT now()
-                )
-            `;
-            const applied = await sql<{ version: number }[]>`
-                SELECT version FROM wikione_schema_migrations WHERE version = 1
-            `;
-            if (applied.length === 0) {
-                await sql`
-                    CREATE TABLE wikione_accounts (
-                        id uuid PRIMARY KEY,
-                        username varchar(40) NOT NULL,
-                        normalized_username varchar(80) NOT NULL UNIQUE,
-                        display_name varchar(80) NOT NULL,
-                        password_hash text NOT NULL,
-                        created_at timestamptz NOT NULL,
-                        updated_at timestamptz NOT NULL
-                    )
-                `;
-                await sql`
-                    INSERT INTO wikione_schema_migrations (version) VALUES (1)
-                `;
-            }
+            await migrateAccountSchema(sql);
         });
     }
 

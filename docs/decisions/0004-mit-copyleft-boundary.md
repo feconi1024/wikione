@@ -1,7 +1,11 @@
 # ADR 0004: MIT license and copyleft boundary
 
-- Status: accepted
+- Status: superseded by
+  [ADR 0008](0008-mit-source-release-supersedes-gpl-request.md)
 - Date: 2026-07-17
+
+ADR 0008 keeps this decision's MIT choice and copyleft boundary, and additionally
+settles how Milestone 3's "GPL source repository" artifact is delivered.
 
 ## Decision
 

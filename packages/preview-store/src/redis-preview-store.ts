@@ -6,6 +6,7 @@ import {
     type PreviewBundle,
     type PreviewStore,
 } from './preview-store.js';
+import type { RedisCredentialsProvider } from '@wikione/redis-auth';
 
 const keyPrefix = 'wikione:preview:';
 
@@ -16,7 +17,10 @@ export class RedisPreviewStore implements PreviewStore {
         this.#client = client;
     }
 
-    public static async connect(url: string): Promise<RedisPreviewStore> {
+    public static async connect(
+        url: string,
+        credentialsProvider?: RedisCredentialsProvider,
+    ): Promise<RedisPreviewStore> {
         const parsedUrl = new URL(url);
         if (
             parsedUrl.protocol !== 'redis:' &&
@@ -24,12 +28,21 @@ export class RedisPreviewStore implements PreviewStore {
         ) {
             throw new TypeError('REDIS_URL must use redis:// or rediss://.');
         }
-        const client = createClient({ url });
+        const client = createClient({
+            url,
+            ...(credentialsProvider ? { credentialsProvider } : {}),
+        });
         client.on('error', () => {
             // The calling service owns availability reporting. Never log bundle data here.
         });
         await client.connect();
         return new RedisPreviewStore(client);
+    }
+
+    public async ready(): Promise<void> {
+        if ((await this.#client.ping()) !== 'PONG') {
+            throw new Error('Redis preview readiness check failed.');
+        }
     }
 
     public async put(

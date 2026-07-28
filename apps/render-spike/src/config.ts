@@ -20,6 +20,7 @@ const fixtureSchema = z
     .object({
         id: z.string().regex(/^[a-z0-9-]+$/),
         label: z.string().min(1),
+        supportLevel: z.enum(['supported', 'compatibility', 'controlled']),
         wikiBaseUrl: z.url().startsWith('https://'),
         apiUrl: z.url().startsWith('https://'),
         title: z.string().min(1),

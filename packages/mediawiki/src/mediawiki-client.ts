@@ -11,12 +11,23 @@ export interface MediaWikiClientOptions {
     readonly fetchImplementation?: typeof fetch;
     readonly timeoutMilliseconds?: number;
     readonly maxLagSeconds?: number;
+    /** The number of overload retries after the initial request. */
+    readonly maxRetries?: number;
+    /** The initial exponential-backoff delay for overload retries. */
+    readonly retryBaseMilliseconds?: number;
+    /** A ceiling that prevents an upstream Retry-After value from stalling a worker. */
+    readonly maxRetryDelayMilliseconds?: number;
+    /** Injectable so retry tests do not wait for real time. */
+    readonly sleep?: (milliseconds: number) => Promise<void>;
+    /** Injectable jitter source for deterministic retry tests. */
+    readonly random?: () => number;
 }
 
 interface MediaWikiErrorPayload {
     readonly code?: unknown;
     readonly info?: unknown;
     readonly text?: unknown;
+    readonly lag?: unknown;
 }
 
 interface MediaWikiEnvelope {
@@ -45,7 +56,8 @@ interface PageRecord {
 }
 
 interface QueryRecord {
-    readonly pages?: readonly PageRecord[];
+    readonly pages?:
+        readonly PageRecord[] | Readonly<Record<string, PageRecord>>;
     readonly general?: {
         readonly sitename?: unknown;
         readonly lang?: unknown;
@@ -74,12 +86,20 @@ interface ParseRecord {
 export class MediaWikiApiError extends Error {
     public readonly code: string;
     public readonly status: number | undefined;
+    /** A bounded server-directed delay, suitable for callers that queue work. */
+    public readonly retryAfterSeconds: number | undefined;
 
-    public constructor(message: string, code: string, status?: number) {
+    public constructor(
+        message: string,
+        code: string,
+        status?: number,
+        retryAfterSeconds?: number,
+    ) {
         super(message);
         this.name = 'MediaWikiApiError';
         this.code = code;
         this.status = status;
+        this.retryAfterSeconds = retryAfterSeconds;
     }
 }
 
@@ -94,6 +114,11 @@ export class MediaWikiClient {
     readonly #fetch: typeof fetch;
     readonly #timeoutMilliseconds: number;
     readonly #maxLagSeconds: number;
+    readonly #maxRetries: number;
+    readonly #retryBaseMilliseconds: number;
+    readonly #maxRetryDelayMilliseconds: number;
+    readonly #sleep: (milliseconds: number) => Promise<void>;
+    readonly #random: () => number;
 
     public constructor(options: MediaWikiClientOptions) {
         const apiUrl = new URL(options.apiUrl);
@@ -119,6 +144,41 @@ export class MediaWikiClient {
         this.#fetch = options.fetchImplementation ?? globalThis.fetch;
         this.#timeoutMilliseconds = options.timeoutMilliseconds ?? 15_000;
         this.#maxLagSeconds = options.maxLagSeconds ?? 5;
+        this.#maxRetries = boundedInteger(
+            options.maxRetries,
+            2,
+            0,
+            5,
+            'maxRetries',
+        );
+        this.#retryBaseMilliseconds = boundedInteger(
+            options.retryBaseMilliseconds,
+            500,
+            1,
+            60_000,
+            'retryBaseMilliseconds',
+        );
+        this.#maxRetryDelayMilliseconds = boundedInteger(
+            options.maxRetryDelayMilliseconds,
+            30_000,
+            1,
+            60_000,
+            'maxRetryDelayMilliseconds',
+        );
+        this.#sleep = options.sleep ?? defaultSleep;
+        this.#random = options.random ?? Math.random;
+
+        if (
+            !Number.isFinite(this.#timeoutMilliseconds) ||
+            this.#timeoutMilliseconds <= 0
+        ) {
+            throw new TypeError(
+                'timeoutMilliseconds must be a positive number.',
+            );
+        }
+        if (!Number.isFinite(this.#maxLagSeconds) || this.#maxLagSeconds < 0) {
+            throw new TypeError('maxLagSeconds must be a non-negative number.');
+        }
     }
 
     public async getRevisionSource(input: {
@@ -134,13 +194,14 @@ export class MediaWikiClient {
             prop: 'revisions',
             rvprop: 'ids|timestamp|content',
             rvslots: 'main',
+            redirects: '1',
             ...(input.revisionId === undefined
                 ? { titles: input.title ?? '' }
                 : { revids: String(input.revisionId) }),
         });
         const query = payload.query as QueryRecord | undefined;
-        const page = query?.pages?.[0];
-        const revision = page?.revisions?.[0];
+        const page = firstRecord(query?.pages);
+        const revision = firstRecord(page?.revisions);
         const mainSlot = revision?.slots?.main;
 
         if (
@@ -162,6 +223,13 @@ export class MediaWikiClient {
                 : typeof page.contentmodel === 'string'
                   ? page.contentmodel
                   : 'unknown';
+
+        if (contentModel !== 'wikitext') {
+            throw new MediaWikiApiError(
+                'The requested revision is not wikitext.',
+                'unsupported-content-model',
+            );
+        }
 
         return {
             pageId: page.pageid,
@@ -288,43 +356,237 @@ export class MediaWikiClient {
             maxlag: String(this.#maxLagSeconds),
             ...parameters,
         });
-        const response = await this.#fetch(this.#apiUrl, {
-            method: 'POST',
-            headers: {
-                'Api-User-Agent': this.#userAgent,
-                'Content-Type':
-                    'application/x-www-form-urlencoded;charset=UTF-8',
-                'User-Agent': this.#userAgent,
-            },
-            body,
-            redirect: 'error',
-            signal: AbortSignal.timeout(this.#timeoutMilliseconds),
-        });
+        for (let attempt = 0; ; attempt += 1) {
+            const response = await this.#request(body);
+            const retryAfterSeconds = retryAfterSecondsFrom(
+                response.headers.get('Retry-After'),
+                this.#maxRetryDelayMilliseconds,
+            );
 
-        if (!response.ok) {
+            if (
+                response.redirected ||
+                response.type === 'opaqueredirect' ||
+                (response.status >= 300 && response.status < 400)
+            ) {
+                throw new MediaWikiApiError(
+                    'The MediaWiki API attempted an unexpected redirect.',
+                    'redirect-rejected',
+                    response.status,
+                );
+            }
+
+            if (!response.ok) {
+                const error = new MediaWikiApiError(
+                    'The MediaWiki API request failed.',
+                    'http-error',
+                    response.status,
+                    retryAfterSeconds,
+                );
+                if (this.#shouldRetryHttp(response.status, attempt)) {
+                    await this.#delay(attempt, retryAfterSeconds);
+                    continue;
+                }
+                throw error;
+            }
+
+            if (!isJsonContentType(response.headers.get('Content-Type'))) {
+                throw new MediaWikiApiError(
+                    'The MediaWiki API returned an unexpected content type.',
+                    'invalid-content-type',
+                    response.status,
+                );
+            }
+
+            let payload: unknown;
+            try {
+                payload = await response.json();
+            } catch {
+                throw new MediaWikiApiError(
+                    'The MediaWiki API returned invalid JSON.',
+                    'invalid-json',
+                    response.status,
+                );
+            }
+            if (!isRecord(payload)) {
+                throw new MediaWikiApiError(
+                    'The MediaWiki API returned an invalid JSON envelope.',
+                    'invalid-payload',
+                    response.status,
+                );
+            }
+
+            const error = apiErrorFrom(payload);
+            if (error) {
+                const apiError = new MediaWikiApiError(
+                    'The MediaWiki API rejected the request.',
+                    error.code,
+                    response.status,
+                    retryAfterSeconds,
+                );
+                if (error.code === 'maxlag' && attempt < this.#maxRetries) {
+                    await this.#delay(attempt, retryAfterSeconds);
+                    continue;
+                }
+                throw apiError;
+            }
+
+            return payload;
+        }
+    }
+
+    async #request(body: URLSearchParams): Promise<Response> {
+        const signal = AbortSignal.timeout(this.#timeoutMilliseconds);
+        try {
+            return await this.#fetch(this.#apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Api-User-Agent': this.#userAgent,
+                    'Content-Type':
+                        'application/x-www-form-urlencoded;charset=UTF-8',
+                    'User-Agent': this.#userAgent,
+                },
+                body,
+                redirect: 'error',
+                signal,
+            });
+        } catch {
+            if (signal.aborted) {
+                throw new MediaWikiApiError(
+                    'The MediaWiki API request timed out.',
+                    'request-timeout',
+                );
+            }
             throw new MediaWikiApiError(
-                `The MediaWiki API returned HTTP ${String(response.status)}.`,
-                'http-error',
-                response.status,
+                'The MediaWiki API request could not be completed.',
+                'request-failed',
             );
         }
-
-        const payload = (await response.json()) as MediaWikiEnvelope;
-        const error = payload.error ?? payload.errors?.[0];
-        if (error) {
-            const message =
-                typeof error.info === 'string'
-                    ? error.info
-                    : typeof error.text === 'string'
-                      ? error.text
-                      : 'The MediaWiki API rejected the request.';
-            const code =
-                typeof error.code === 'string' ? error.code : 'mediawiki-error';
-            throw new MediaWikiApiError(message, code);
-        }
-
-        return payload;
     }
+
+    #shouldRetryHttp(status: number, attempt: number): boolean {
+        return attempt < this.#maxRetries && (status === 429 || status === 503);
+    }
+
+    async #delay(
+        attempt: number,
+        retryAfterSeconds: number | undefined,
+    ): Promise<void> {
+        const retryAfterMilliseconds =
+            retryAfterSeconds === undefined
+                ? undefined
+                : retryAfterSeconds * 1_000;
+        const exponential = Math.min(
+            this.#maxRetryDelayMilliseconds,
+            this.#retryBaseMilliseconds * 2 ** attempt,
+        );
+        const jitter = 0.5 + Math.min(1, Math.max(0, this.#random()));
+        const delay = Math.min(
+            this.#maxRetryDelayMilliseconds,
+            retryAfterMilliseconds ?? Math.round(exponential * jitter),
+        );
+        await this.#sleep(delay);
+    }
+}
+
+function boundedInteger(
+    value: number | undefined,
+    fallback: number,
+    minimum: number,
+    maximum: number,
+    name: string,
+): number {
+    if (value === undefined) {
+        return fallback;
+    }
+    if (!Number.isInteger(value) || value < minimum || value > maximum) {
+        throw new TypeError(
+            `${name} must be an integer between ${String(minimum)} and ${String(maximum)}.`,
+        );
+    }
+    return value;
+}
+
+function defaultSleep(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function retryAfterSecondsFrom(
+    value: string | null,
+    maximumDelayMilliseconds: number,
+): number | undefined {
+    if (!value) {
+        return undefined;
+    }
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric >= 0) {
+        return Math.min(
+            Math.floor(numeric),
+            Math.floor(maximumDelayMilliseconds / 1_000),
+        );
+    }
+    const date = Date.parse(value);
+    if (!Number.isNaN(date)) {
+        return Math.min(
+            Math.max(0, Math.ceil((date - Date.now()) / 1_000)),
+            Math.floor(maximumDelayMilliseconds / 1_000),
+        );
+    }
+    return undefined;
+}
+
+function isJsonContentType(value: string | null): boolean {
+    return (
+        value !== null &&
+        /^application\/(?:[a-z0-9.+-]+\+)?json(?:\s*;|$)/i.test(value)
+    );
+}
+
+function apiErrorFrom(
+    payload: Readonly<Record<string, unknown>>,
+): { code: string } | undefined {
+    const error = payload.error ?? firstUnknownRecord(payload.errors);
+    if (!isRecord(error)) {
+        return undefined;
+    }
+    return {
+        code: safeErrorCode(error.code),
+    };
+}
+
+function firstUnknownRecord(
+    value: unknown,
+): Readonly<Record<string, unknown>> | undefined {
+    if (Array.isArray(value)) {
+        const entries: readonly unknown[] = value;
+        const first = entries[0];
+        return isRecord(first) ? first : undefined;
+    }
+    if (isRecord(value)) {
+        const first = Object.values(value)[0];
+        return isRecord(first) ? first : undefined;
+    }
+    return undefined;
+}
+
+function safeErrorCode(value: unknown): string {
+    if (typeof value === 'string' && /^[a-z][a-z0-9-]{0,63}$/i.test(value)) {
+        return value.toLowerCase();
+    }
+    return 'mediawiki-error';
+}
+
+function firstRecord<T extends object>(
+    value: readonly T[] | Readonly<Record<string, T>> | undefined,
+): T | undefined {
+    if (Array.isArray(value)) {
+        const entries: readonly T[] = value;
+        return entries[0];
+    }
+    if (isRecord(value)) {
+        const entries: readonly T[] = Object.values(value);
+        return entries[0];
+    }
+    return undefined;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

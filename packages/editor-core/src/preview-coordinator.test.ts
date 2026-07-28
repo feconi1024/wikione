@@ -57,10 +57,12 @@ describe('PreviewCoordinator', () => {
     it('ignores a late response after a newer edit is scheduled', async () => {
         vi.useFakeTimers();
         const resolvers = new Map<number, (value: PreviewResult) => void>();
+        const signals = new Map<number, AbortSignal>();
         const fetchPreview = vi.fn(
-            (input: PreviewRequest) =>
+            (input: PreviewRequest, signal: AbortSignal) =>
                 new Promise<PreviewResult>((resolve) => {
                     resolvers.set(input.clientRevision, resolve);
+                    signals.set(input.clientRevision, signal);
                 }),
         );
         const results: PreviewResult[] = [];
@@ -76,7 +78,9 @@ describe('PreviewCoordinator', () => {
 
         coordinator.schedule(request(1));
         await vi.advanceTimersByTimeAsync(10);
+        const firstSignal = signals.get(1);
         coordinator.schedule(request(2));
+        expect(firstSignal?.aborted).toBe(true);
         await vi.advanceTimersByTimeAsync(10);
         resolvers.get(1)?.(result(1));
         resolvers.get(2)?.(result(2));

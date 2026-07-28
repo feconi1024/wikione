@@ -1,0 +1,7 @@
+# This file is consumed by `terraform init -backend-config=backend.hcl` and is
+# deliberately not a .tf file: each environment gets a separate bucket/key.
+bucket         = "REPLACE-WITH-TERRAFORM-STATE-BUCKET"
+key            = "wikione/production/terraform.tfstate"
+region         = "ap-southeast-1"
+encrypt        = true
+use_lockfile   = true

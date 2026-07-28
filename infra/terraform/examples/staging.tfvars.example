@@ -1,0 +1,19 @@
+aws_region         = "ap-southeast-1"
+environment        = "staging"
+route53_zone_name  = "example.org"
+availability_zones = ["ap-southeast-1a", "ap-southeast-1b"]
+alert_email        = "operations@example.org"
+
+# Release automation replaces these with public, signed GHCR digest references.
+container_image_digests = {
+    web     = "ghcr.io/feconi1024/wikione-web@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    api     = "ghcr.io/feconi1024/wikione-api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    preview = "ghcr.io/feconi1024/wikione-preview@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}
+
+# ARNs only: create secret values through the approved secrets rotation process.
+api_secret_arns = {
+    SESSION_ENCRYPTION_KEY_BASE64    = "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:wikione/staging/api/session-encryption"
+    SESSION_LOOKUP_HMAC_KEY_BASE64   = "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:wikione/staging/api/session-lookup"
+}
+preview_secret_arns = {}

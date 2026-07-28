@@ -5,7 +5,7 @@ a responsive source/compiled-page workspace with local drafts, first-party
 WikiOne accounts, source review, latest-revision checks, and three-way conflict
 resolution for an English Wikipedia MVP.
 
-## Milestone 2 capabilities
+## Public-beta candidate capabilities
 
 - Side-by-side source and target-rendered page panes, continuously recompiled
   after edits; narrow screens use accessible Source/Preview tabs.
@@ -26,11 +26,27 @@ resolution for an English Wikipedia MVP.
   three-way conflict resolution.
 - A fake-tested publisher boundary covering create-only/update safeguards,
   post-write revision verification, and normalized AbuseFilter/CAPTCHA errors.
+- Non-root, read-only OCI images; reproducible runtime comparison; OpenAPI drift
+  checks; source/image scans; SPDX SBOM/provenance output; and signed immutable
+  GHCR release manifests.
+- Validated AWS Terraform for exact app/API/preview domains, private Fargate,
+  managed PostgreSQL with a migration-gated least-privileged API role,
+  IAM-authenticated Redis, TLS/CSP, KMS-encrypted configuration records,
+  dashboards, synthetics, alerts, and rollback.
+- A protected GitHub OIDC deployment workflow that requires a successful exact
+  staging canary before production promotion and restores the complete prior
+  signed manifest on apply or public-probe failure.
 
 Public Wikimedia OAuth approval is still required. Wikimedia connection and
 real publishing remain hard-disabled: the UI explains the gate, placeholder
 routes return 503, and the runtime has no authenticated MediaWiki write adapter.
 Moegirlpedia remains outside the English Wikipedia MVP.
+
+The repository is deployable but does not itself prove a live public service.
+Public beta still requires project-owned AWS/DNS/secrets, signed public images,
+real deployment/alert/restore/rollback evidence, manual accessibility sign-off,
+and a monitored security contact. WikiOne is released under the MIT License; see
+[ADR 0008](docs/decisions/0008-mit-source-release-supersedes-gpl-request.md).
 
 ## Quick start
 
@@ -62,7 +78,8 @@ pnpm test:e2e
 rendering-fidelity baseline; ordinary tests do not contact or edit any wiki.
 
 See [development setup](docs/development.md), the
-[Milestone 2 checklist](docs/milestone-2-checklist.md), and the
+[deployment guide](docs/deployment.md), the
+[Milestone 3 checklist](docs/milestone-3-checklist.md), and the
 [documentation index](docs/README.md).
 
 ## License

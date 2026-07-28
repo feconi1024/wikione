@@ -8,7 +8,14 @@ All notable changes to WikiOne are documented in this file. The format follows
 ### Added
 
 - Milestone 3 hardening/public-beta plan and evidence-first completion
-  checklist, including an explicit MIT/GPL governance decision gate.
+  checklist.
+- ADR 0008 settling the source license: MIT is authoritative, and the
+  milestone's source-release artifact is delivered as complete corresponding
+  source under MIT rather than by relicensing. It supersedes ADR 0004 and
+  retains the boundary against copying Wikimedia's GPL CodeMirror extension.
+- A dated Milestone 3 audit record listing every executed gate with its result,
+  the defects the audit found and fixed, and every gate still unmet for want of
+  cloud credentials, a registry, a live domain, or a human tester.
 - Dedicated accessibility, five-engine browser-compatibility, and deterministic
   desktop/mobile visual-regression gates with reviewed baselines.
 - A complete OpenAPI 3.1 contract with deterministic artifact generation,
@@ -164,6 +171,19 @@ All notable changes to WikiOne are documented in this file. The format follows
   pre-provisioned database URL containing a not-yet-created endpoint.
 - CI actions are pinned by commit and CI now validates and security-scans the
   Terraform module before building the browser and OCI artifacts.
+- CI now gates every push on gitleaks, Trivy vulnerability/secret/license
+  scanning, the source-boundary audit, and the container hardening checks.
+  Previously those ran only in the tag-triggered release workflow, or nowhere.
+
+### Fixed
+
+- `pnpm check` failed at the lint step: the password benchmark imported the
+  `@wikione/auth-core` build output, which does not exist when lint and
+  typecheck run before any build. It now imports the package source entry point.
+- The five-engine browser suite was intermittently red. WebKit needs up to 26 s
+  for the CodeMirror surface against a 30 s budget the other engines clear in
+  under 10 s, so host contention produced spurious compatibility failures.
+  WebKit projects now carry their own timing budgets.
 - Architecture and threat-model documentation now covers the AWS runtime,
   signed supply chain, protected promotion, configuration-only retention,
   rollback controls, and explicitly unproven external state.

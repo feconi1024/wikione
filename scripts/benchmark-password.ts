@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
-import { createPasswordHasher } from '../packages/auth-core/dist/index.js';
+import { createPasswordHasher } from '../packages/auth-core/src/index.js';
 
 const operations = readInteger('PASSWORD_BENCHMARK_OPERATIONS', 4, 1, 20);
 const concurrency = readInteger('PASSWORD_BENCHMARK_CONCURRENCY', 2, 1, 4);

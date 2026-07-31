@@ -40,7 +40,7 @@ export class RedisPreviewStore implements PreviewStore {
     }
 
     public async ready(): Promise<void> {
-        if ((await this.#client.ping()) !== 'PONG') {
+        if (!this.#client.isReady || (await this.#client.ping()) !== 'PONG') {
             throw new Error('Redis preview readiness check failed.');
         }
     }

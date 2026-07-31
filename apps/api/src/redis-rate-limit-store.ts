@@ -37,6 +37,7 @@ const rateLimitScript = `
 
 interface RedisRateLimitClient {
     readonly isOpen: boolean;
+    readonly isReady?: boolean;
     readonly eval: (
         script: string,
         options: {
@@ -148,7 +149,7 @@ export function createRateLimitStoreResource(
     return {
         store: RedisRateLimitStore,
         ready: async () => {
-            if ((await client.ping()) !== 'PONG') {
+            if (client.isReady === false || (await client.ping()) !== 'PONG') {
                 throw new Error('Redis rate-limit readiness check failed.');
             }
         },

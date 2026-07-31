@@ -70,6 +70,12 @@ boundary, and an isolated live Wikipedia preview. Its temporary account is
 deleted even when a later check fails. The preview check intentionally needs
 internet access but remains anonymous and read-only.
 
+`pnpm test:local:resilience` additionally stops only the local Redis container,
+proves API/preview liveness remains 200 while dependency readiness becomes 503
+with `Retry-After`, restarts Redis in a `finally` recovery path, and then reruns
+the complete acceptance gate. Existing local sessions and previews are expected
+to expire because Redis is intentionally ephemeral.
+
 For public deployment, replace loopback origins/CSP values, use HTTPS, keep the
 preview hostname separate, set `COOKIE_SECURE=true`, and provide independent
 random 32-byte `SESSION_ENCRYPTION_KEY_BASE64` and

@@ -12,10 +12,12 @@ const defaultEditorOrigins = [
     'http://127.0.0.1:5173',
     'http://localhost:5173',
 ] as const;
+const defaultReadinessCheckTimeoutMilliseconds = 1_000;
 
 export interface BuildPreviewOptions {
     readonly logger?: boolean;
     readonly previewStore?: PreviewStore;
+    readonly readinessCheckTimeoutMilliseconds?: number;
     readonly editorOrigins?: readonly string[];
     readonly trustProxy?: boolean | number;
 }
@@ -32,6 +34,10 @@ export function buildPreviewApp(
         options.editorOrigins ?? defaultEditorOrigins,
     );
     const frameAncestors = editorOrigins.join(' ');
+    const readinessCheckTimeoutMilliseconds = readReadinessCheckTimeout(
+        options.readinessCheckTimeoutMilliseconds ??
+            defaultReadinessCheckTimeoutMilliseconds,
+    );
     const app = Fastify({
         logger: options.logger ?? false,
         logController: new LogController({ disableRequestLogging: true }),
@@ -69,7 +75,10 @@ export function buildPreviewApp(
     app.get('/readyz', async (request, reply) => {
         setNonDocumentPolicy(reply, frameAncestors);
         try {
-            await previewStore.ready();
+            await withTimeout(
+                async () => previewStore.ready(),
+                readinessCheckTimeoutMilliseconds,
+            );
             return {
                 status: 'ready' as const,
                 checks: { 'preview-store': 'ready' as const },
@@ -129,6 +138,36 @@ export function buildPreviewApp(
     });
 
     return app;
+}
+
+async function withTimeout(
+    check: () => Promise<void>,
+    timeoutMilliseconds: number,
+): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+            () => reject(new Error('Readiness dependency timed out.')),
+            timeoutMilliseconds,
+        );
+        timer.unref();
+    });
+    try {
+        await Promise.race([check(), timeout]);
+    } finally {
+        if (timer) {
+            clearTimeout(timer);
+        }
+    }
+}
+
+function readReadinessCheckTimeout(value: number): number {
+    if (!Number.isSafeInteger(value) || value < 1 || value > 30_000) {
+        throw new RangeError(
+            'Readiness check timeout must be an integer from 1 to 30000 milliseconds.',
+        );
+    }
+    return value;
 }
 
 function setCommonSecurityHeaders(reply: FastifyReply): void {

@@ -47,7 +47,7 @@ export class RedisSessionRepository implements SessionRepository {
     }
 
     public async ready(): Promise<void> {
-        if ((await this.#client.ping()) !== 'PONG') {
+        if (!this.#client.isReady || (await this.#client.ping()) !== 'PONG') {
             throw new Error('Redis session readiness check failed.');
         }
     }

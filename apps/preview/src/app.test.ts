@@ -49,6 +49,29 @@ describe('isolated preview origin', () => {
         expect(response.body).not.toContain('secret.internal');
     });
 
+    it('bounds a stalled store check and returns not-ready', async () => {
+        const store = new MemoryPreviewStore();
+        vi.spyOn(store, 'ready').mockImplementation(
+            async () => new Promise<void>(() => undefined),
+        );
+        const app = buildPreviewApp({
+            editorOrigins: ['http://127.0.0.1:5173'],
+            previewStore: store,
+            readinessCheckTimeoutMilliseconds: 10,
+        });
+        openApps.push(app);
+
+        const startedAt = performance.now();
+        const response = await app.inject({ method: 'GET', url: '/readyz' });
+
+        expect(response.statusCode).toBe(503);
+        expect(performance.now() - startedAt).toBeLessThan(500);
+        expect(response.json()).toEqual({
+            status: 'not-ready',
+            checks: { 'preview-store': 'failed' },
+        });
+    });
+
     it('serves an opaque bundle with isolation and no credential headers', async () => {
         const store = new MemoryPreviewStore();
         await store.put(

@@ -13,6 +13,9 @@ All notable changes to WikiOne are documented in this file. The format follows
   disabled publishing, account deletion, and credential revocation.
 - A self-recovering local Redis outage drill that proves liveness/readiness
   semantics and reruns the real-stack acceptance gate after recovery.
+- An isolated PostgreSQL backup/restore drill that uses only the current schema
+  and a synthetic account, verifies the restored migration/data records, and
+  leaves the running local account database unchanged.
 - Automated 320 CSS-pixel reflow and forced-colors accessibility coverage plus
   a repository security regression test that rejects mutable GitHub Action
   references and unsafe or implicitly installed Trivy versions.
@@ -192,6 +195,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 - CI now runs the real PostgreSQL migration/least-privilege integration test
   and the desktop/mobile accessibility matrix instead of silently skipping the
   database path and exercising only desktop Chromium.
+- The root typecheck now includes operational scripts, security tests, and
+  Playwright tests; the local acceptance JSON guard was corrected after this
+  expanded gate exposed its previously unchecked narrowing error.
 - OCI builds recursively exclude local worktrees, dependency/build artifacts,
   and Terraform provider caches instead of copying roughly 1.9 GiB of local
   auxiliary data into every application image layer.

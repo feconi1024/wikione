@@ -76,6 +76,13 @@ with `Retry-After`, restarts Redis in a `finally` recovery path, and then reruns
 the complete acceptance gate. Existing local sessions and previews are expected
 to expire because Redis is intentionally ephemeral.
 
+`pnpm test:local:restore` copies only the current PostgreSQL schema into a
+temporary database, inserts one synthetic account, performs a binary
+`pg_dump`/`pg_restore` round trip into a second isolated database, verifies the
+account and migration record, and removes both databases in a `finally` path.
+It never dumps local account rows. `pnpm test:local:milestone3` runs the
+resilience, acceptance, and restore drills as one local release gate.
+
 For public deployment, replace loopback origins/CSP values, use HTTPS, keep the
 preview hostname separate, set `COOKIE_SECURE=true`, and provide independent
 random 32-byte `SESSION_ENCRYPTION_KEY_BASE64` and

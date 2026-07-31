@@ -382,7 +382,7 @@ function objectAt(value: JsonObject, key: string): JsonObject {
 
 function stringAt(value: JsonObject, key: string): string {
     const nested = value[key];
-    assert.equal(typeof nested, 'string', `Expected ${key} to be a string.`);
+    assert.ok(typeof nested === 'string', `Expected ${key} to be a string.`);
     return nested;
 }
 

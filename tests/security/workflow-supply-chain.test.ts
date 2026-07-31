@@ -81,10 +81,16 @@ async function readWorkflows(): Promise<Map<string, string>> {
     );
     return new Map(
         await Promise.all(
-            files.map(async (file) => [
-                file,
-                await readFile(resolve(workflowsDirectory, file), 'utf8'),
-            ]),
+            files.map(
+                async (file) =>
+                    [
+                        file,
+                        await readFile(
+                            resolve(workflowsDirectory, file),
+                            'utf8',
+                        ),
+                    ] as const,
+            ),
         ),
     );
 }

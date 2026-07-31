@@ -35,10 +35,12 @@
         "test:load:password": "tsx scripts/benchmark-password.ts",
         "test:live": "pnpm --filter @wikione/render-spike... build && pnpm --filter @wikione/render-spike validate:live",
         "test:local": "tsx scripts/local-acceptance.ts",
+        "test:local:milestone3": "pnpm test:local:resilience && pnpm test:local:restore",
         "test:local:resilience": "tsx scripts/local-resilience.ts && pnpm test:local",
+        "test:local:restore": "tsx scripts/local-backup-restore.ts",
         "test:security": "vitest run tests/security && tsx scripts/security-audit.ts",
         "test:visual": "playwright test --config e2e/playwright.config.ts --grep @visual --project=chromium-desktop --project=mobile-chrome",
-        "typecheck": "turbo run typecheck"
+        "typecheck": "turbo run typecheck && tsc -p scripts/tsconfig.json && tsc -p tests/tsconfig.json && tsc -p e2e/tsconfig.json"
     },
     "devDependencies": {
         "@axe-core/playwright": "^4.0.0",

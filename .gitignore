@@ -35,4 +35,5 @@ temp/
 Thumbs.db
 AGENTS.md
 .agents/
+.claude/
 .codex/

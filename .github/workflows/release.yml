@@ -21,6 +21,9 @@ permissions:
 env:
     REGISTRY: ghcr.io
     IMAGE_NAMESPACE: ${{ github.repository_owner }}/wikione
+    # Keep the scanner on Aqua's known-safe immutable release after
+    # GHSA-69fq-xp46-6x23. The setup and scan actions are SHA-pinned below.
+    TRIVY_VERSION: v0.69.3
     VERSION: ${{ inputs.version || github.ref_name }}
 
 jobs:
@@ -35,7 +38,14 @@ jobs:
             - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+              with:
+                  cache: true
+                  version: ${{ env.TRIVY_VERSION }}
+            - name: Assert trusted Trivy version
+              run: |
+                  test "$(trivy --version | head -n 1)" = 'Version: 0.69.3'
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   scan-type: fs
                   scan-ref: .
@@ -44,6 +54,7 @@ jobs:
                   output: trivy-source.sarif
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
             - uses: github/codeql-action/upload-sarif@ddf5ce7296213f5548c91e2dd19df2d77d2b2d66 # v3
               if: always() && hashFiles('trivy-source.sarif') != ''
               with:
@@ -98,35 +109,45 @@ jobs:
                   image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-web@${{ steps.digests.outputs.web_digest }}
                   format: spdx-json
                   artifact-name: wikione-web.spdx.json
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+              with:
+                  cache: true
+                  version: ${{ env.TRIVY_VERSION }}
+            - name: Assert trusted Trivy version
+              run: |
+                  test "$(trivy --version | head -n 1)" = 'Version: 0.69.3'
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-api@${{ steps.digests.outputs.api_digest }}
                   format: sarif
                   output: trivy-api.sarif
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
             - uses: github/codeql-action/upload-sarif@ddf5ce7296213f5548c91e2dd19df2d77d2b2d66 # v3
               if: always() && hashFiles('trivy-api.sarif') != ''
               with:
                   sarif_file: trivy-api.sarif
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-preview@${{ steps.digests.outputs.preview_digest }}
                   format: sarif
                   output: trivy-preview.sarif
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
             - uses: github/codeql-action/upload-sarif@ddf5ce7296213f5548c91e2dd19df2d77d2b2d66 # v3
               if: always() && hashFiles('trivy-preview.sarif') != ''
               with:
                   sarif_file: trivy-preview.sarif
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-web@${{ steps.digests.outputs.web_digest }}
                   format: sarif
                   output: trivy-web.sarif
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
             - uses: github/codeql-action/upload-sarif@ddf5ce7296213f5548c91e2dd19df2d77d2b2d66 # v3
               if: always() && hashFiles('trivy-web.sarif') != ''
               with:

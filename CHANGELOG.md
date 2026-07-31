@@ -177,6 +177,13 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Fixed
 
+- Local checks ignore Git-excluded agent and editor metadata, including nested
+  `.claude` worktrees, so `pnpm check` evaluates only the WikiOne checkout and
+  does not fail on another tool's independent TypeScript project.
+- GitHub CI and release scans no longer depend on the broken pre-incident
+  Trivy action chain. Workflows now use Aqua's post-incident known-safe
+  SHA-pinned `setup-trivy` 0.2.6 and `trivy-action` 0.35.0 releases, assert the
+  immutable Trivy 0.69.3 binary, and prevent nested scanner setup.
 - `pnpm check` failed at the lint step: the password benchmark imported the
   `@wikione/auth-core` build output, which does not exist when lint and
   typecheck run before any build. It now imports the package source entry point.

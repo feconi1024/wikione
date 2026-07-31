@@ -8,6 +8,11 @@ on:
 permissions:
     contents: read
 
+env:
+    # Aqua's GHSA-69fq-xp46-6x23 advisory identifies v0.69.3 as a
+    # known-safe immutable binary after the March 2026 supply-chain incident.
+    TRIVY_VERSION: v0.69.3
+
 jobs:
     # Dependency, secret, and license regressions must fail the pull request
     # that introduces them. The release workflow repeats these scans against
@@ -23,13 +28,21 @@ jobs:
             - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+              with:
+                  cache: true
+                  version: ${{ env.TRIVY_VERSION }}
+            - name: Assert trusted Trivy version
+              run: |
+                  test "$(trivy --version | head -n 1)" = 'Version: 0.69.3'
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   scan-type: fs
                   scan-ref: .
                   scanners: vuln,secret,license
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
 
     verify:
         runs-on: ubuntu-24.04
@@ -59,12 +72,20 @@ jobs:
                   terraform -chdir=infra/terraform fmt -check -recursive
                   terraform -chdir=infra/terraform init -backend=false -input=false
                   terraform -chdir=infra/terraform validate
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+              with:
+                  cache: true
+                  version: ${{ env.TRIVY_VERSION }}
+            - name: Assert trusted Trivy version
+              run: |
+                  test "$(trivy --version | head -n 1)" = 'Version: 0.69.3'
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   scan-type: config
                   scan-ref: infra/terraform
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
             - run: pnpm exec playwright install --with-deps chromium
             - run: pnpm test:e2e
             - run: docker build --target api --tag wikione-api:ci .

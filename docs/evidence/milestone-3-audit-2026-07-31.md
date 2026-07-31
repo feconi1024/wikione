@@ -51,8 +51,8 @@ Wikipedia. Moegirlpedia remains post-MVP.
 
 The reproducibility run reported these image IDs:
 
-- `api`: `sha256:597dda2afc1f99b20b79ae322810d4de6546e4f286f9e5d4c84d9adff4d77f48`
-- `preview`: `sha256:b8f855cedb7ed04bab1e1e2e224bb72c3472fb24221140eee506a0fb2e9a6d52`
+- `api`: `sha256:4b62f857ee7a4d01a1cc63855924e7c9a3517ec458f541433bd90d2713809744`
+- `preview`: `sha256:90ce6acbc7bf90b5f574939b6880d231453a759f8d4534c437fdac791c6a8b23`
 - `web`: `sha256:319c790fb9115c80cffb43cc120fc6dcd70388d98ed5edb5b6d42094821da50a`
 
 ## Retained machine-readable evidence

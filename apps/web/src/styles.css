@@ -1548,3 +1548,49 @@ textarea:focus-visible,
         transition-duration: 0.01ms !important;
     }
 }
+
+@media (forced-colors: active) {
+    input,
+    select,
+    textarea {
+        border-color: CanvasText !important;
+        color: CanvasText !important;
+        background: Canvas !important;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: GrayText;
+    }
+
+    button {
+        border-color: ButtonText !important;
+        color: ButtonText !important;
+        background: ButtonFace !important;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [tabindex='0']:focus-visible {
+        outline: 3px solid Highlight;
+        outline-offset: 2px;
+    }
+
+    .button,
+    .icon-button,
+    .status-pill,
+    .notice-strip,
+    .warnings,
+    .publish-error,
+    .readiness-card,
+    .conflict-region {
+        border-color: CanvasText;
+    }
+
+    .diff-line--addition,
+    .diff-line--deletion {
+        border-inline-start: 3px solid CanvasText;
+    }
+}

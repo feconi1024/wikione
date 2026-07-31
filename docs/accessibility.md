@@ -7,9 +7,9 @@ top-level document, but cannot repair inaccessible upstream markup.
 
 ## Automated release gate
 
-`pnpm test:a11y` runs axe-core 4.12 on desktop and mobile Chromium with reduced
-motion enabled. The public-beta gate fails on every serious or critical
-finding. It covers:
+`pnpm test:a11y` runs 16 axe-core 4.12 checks on desktop and mobile Chromium
+with reduced motion enabled. The public-beta gate fails on every serious or
+critical finding. It covers:
 
 - editor, account, connected-app, and privacy routes;
 - sign-in and registration states, authenticated account controls, menus, and
@@ -18,6 +18,8 @@ finding. It covers:
   IndexedDB draft restoration, and preview error retention;
 - publish diff, ready state, conflict choices, edit details, mobile sheets,
   modal focus trapping, Escape dismissal, and focus restoration;
+- 320 CSS px reflow (a deterministic 1280 px-at-400%-zoom equivalent), Windows
+  forced-colors system colors, and a visible focused control in that mode;
 - the cookie-free compiled preview loaded as a top-level document.
 
 The wider `pnpm test:browser` matrix repeats the flows on Chromium, Firefox,
@@ -33,14 +35,14 @@ clarity, or actual browser zoom. A public-beta operator must complete and record
 the following on the release candidate; “not run” is a blocking result, not a
 waiver.
 
-| Check                | Required environment               | Pass condition                                                                                                                 | Current evidence                                                                 |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| Keyboard-only        | Chrome desktop                     | Every editor, menu, modal, splitter, conflict, and account action is reachable; focus is visible and returns predictably       | Automated; human confirmation not yet recorded                                   |
-| Screen reader        | NVDA + Chrome on Windows           | Landmarks and names are concise; status changes announce once; CodeMirror editing and dialog transitions remain understandable | Human confirmation not yet recorded                                              |
-| Screen reader        | VoiceOver + Safari on macOS        | Reading order, rotor landmarks, form errors, diff semantics, and preview boundary are understandable                           | Human confirmation not yet recorded                                              |
-| Mobile screen reader | VoiceOver + Safari on iOS          | Source/preview tabs, sheets, editor input, and conflict choices work by touch and rotor                                        | Human confirmation not yet recorded                                              |
-| Zoom/reflow          | Chrome and Safari at 200% and 400% | No two-dimensional scrolling at 320 CSS px except source/diff code regions; controls and text are not clipped                  | Responsive automation passes at 390 px; human zoom confirmation not yet recorded |
-| Forced colors        | Windows High Contrast              | Focus, fields, buttons, selected tabs, additions/deletions, and errors remain distinguishable without color alone              | Human confirmation not yet recorded                                              |
+| Check                | Required environment               | Pass condition                                                                                                                 | Current evidence                                                                     |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Keyboard-only        | Chrome desktop                     | Every editor, menu, modal, splitter, conflict, and account action is reachable; focus is visible and returns predictably       | Automated; human confirmation not yet recorded                                       |
+| Screen reader        | NVDA + Chrome on Windows           | Landmarks and names are concise; status changes announce once; CodeMirror editing and dialog transitions remain understandable | Human confirmation not yet recorded                                                  |
+| Screen reader        | VoiceOver + Safari on macOS        | Reading order, rotor landmarks, form errors, diff semantics, and preview boundary are understandable                           | Human confirmation not yet recorded                                                  |
+| Mobile screen reader | VoiceOver + Safari on iOS          | Source/preview tabs, sheets, editor input, and conflict choices work by touch and rotor                                        | Human confirmation not yet recorded                                                  |
+| Zoom/reflow          | Chrome and Safari at 200% and 400% | No two-dimensional scrolling at 320 CSS px except source/diff code regions; controls and text are not clipped                  | Automated 320 CSS px proxy passes; actual browser zoom confirmation not yet recorded |
+| Forced colors        | Windows High Contrast              | Focus, fields, buttons, selected tabs, additions/deletions, and errors remain distinguishable without color alone              | Automated forced-colors/focus gate passes; human confirmation not yet recorded       |
 
 Record tester, date, operating-system/browser versions, assistive-technology
 version, failures, and issue links in the release evidence. Do not mark the

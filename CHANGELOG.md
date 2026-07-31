@@ -7,6 +7,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Added
 
+- Automated 320 CSS-pixel reflow and forced-colors accessibility coverage plus
+  a repository security regression test that rejects mutable GitHub Action
+  references and unsafe or implicitly installed Trivy versions.
 - Milestone 3 hardening/public-beta plan and evidence-first completion
   checklist.
 - ADR 0008 settling the source license: MIT is authoritative, and the

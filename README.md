@@ -63,13 +63,15 @@ ports 3000 and 4174. Alternatively, build and start the complete stack:
 
 ```sh
 docker compose up --build --wait
-pnpm test:local
+pnpm test:local:milestone3
 ```
 
 Compose binds the editor, API, preview, PostgreSQL, and Redis ports to loopback
-only. `pnpm test:local` exercises the running production images, creates and
-deletes a temporary first-party account, and performs one anonymous live
-Wikipedia compilation; it never submits an edit.
+only. `pnpm test:local:milestone3` exercises Redis outage and recovery, runs the
+production-image acceptance flow, creates and deletes a temporary first-party
+account, performs one anonymous live Wikipedia compilation, and proves an
+isolated PostgreSQL backup/restore. It never submits an edit or changes the
+running account database.
 
 Run repository and browser gates with:
 
@@ -85,7 +87,9 @@ rendering-fidelity baseline; ordinary tests do not contact or edit any wiki.
 
 See [development setup](docs/development.md), the
 [deployment guide](docs/deployment.md), the
-[Milestone 3 checklist](docs/milestone-3-checklist.md), and the
+[Milestone 3 checklist](docs/milestone-3-checklist.md), the
+[Milestone 3 local-product audit](docs/evidence/milestone-3-audit-2026-07-31.md),
+and the
 [documentation index](docs/README.md).
 
 ## License

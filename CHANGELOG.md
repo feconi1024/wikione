@@ -25,9 +25,11 @@ All notable changes to WikiOne are documented in this file. The format follows
   milestone's source-release artifact is delivered as complete corresponding
   source under MIT rather than by relicensing. It supersedes ADR 0004 and
   retains the boundary against copying Wikimedia's GPL CodeMirror extension.
-- A dated Milestone 3 audit record listing every executed gate with its result,
-  the defects the audit found and fixed, and every gate still unmet for want of
-  cloud credentials, a registry, a live domain, or a human tester.
+- A superseding July 31 Milestone 3 local-product audit with retained load,
+  compatibility, and PostgreSQL restore evidence, exact verification results,
+  repaired defects, local startup instructions, and every public-beta gate
+  still unmet for want of cloud credentials, a registry, a live domain,
+  approved contacts, or a human tester.
 - Dedicated accessibility, five-engine browser-compatibility, and deterministic
   desktop/mobile visual-regression gates with reviewed baselines.
 - A complete OpenAPI 3.1 contract with deterministic artifact generation,

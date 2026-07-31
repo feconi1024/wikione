@@ -49,6 +49,9 @@ This directory contains the product and engineering record for WikiOne.
   deployment, operations, and public-release scope before MVP.
 - [Milestone 3 checklist](milestone-3-checklist.md) is the evidence-first public
   beta release gate.
+- [Milestone 3 local-product audit](evidence/milestone-3-audit-2026-07-31.md)
+  records the final locally actionable implementation, exact verification
+  results, retained reports, and external public-beta gates.
 - [Milestone 1 checklist](milestone-1-checklist.md) maps every deliverable to
   current evidence and verification.
 - [Milestone 0 checklist](milestone-0-checklist.md) preserves the preceding

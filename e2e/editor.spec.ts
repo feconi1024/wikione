@@ -46,9 +46,33 @@ test('@a11y edits wikitext, recompiles continuously, and retains the last good p
     if (!isMobile) {
         const sourceBox = await sourcePane.boundingBox();
         const previewBox = await previewPane.boundingBox();
+        const previewSurfaceBox = await page
+            .locator('.preview-surface')
+            .boundingBox();
+        const previewFrameBox = await page
+            .locator('.preview-surface iframe')
+            .boundingBox();
+        const previewStatusBox = await page
+            .locator('.pane-statusbar--preview')
+            .boundingBox();
         expect(sourceBox).not.toBeNull();
         expect(previewBox).not.toBeNull();
+        expect(previewSurfaceBox).not.toBeNull();
+        expect(previewFrameBox).not.toBeNull();
+        expect(previewStatusBox).not.toBeNull();
         expect(sourceBox?.x ?? 0).toBeLessThan(previewBox?.x ?? 0);
+        expect(previewSurfaceBox?.height ?? 0).toBeGreaterThan(
+            (previewBox?.height ?? 0) * 0.6,
+        );
+        expect(
+            Math.abs(
+                (previewFrameBox?.height ?? 0) -
+                    (previewSurfaceBox?.height ?? 0),
+            ),
+        ).toBeLessThan(2);
+        expect(
+            previewStatusBox?.height ?? Number.POSITIVE_INFINITY,
+        ).toBeLessThan(60);
     }
 
     const editor = page.locator('.cm-content');

@@ -198,6 +198,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 - The root typecheck now includes operational scripts, security tests, and
   Playwright tests; the local acceptance JSON guard was corrected after this
   expanded gate exposed its previously unchecked narrowing error.
+- The desktop compiled-preview iframe now occupies the flexible pane row when
+  no parser-warning element exists; explicit grid placement prevents the
+  intrinsic 150-pixel iframe row from expanding the status bar over the pane.
 - OCI builds recursively exclude local worktrees, dependency/build artifacts,
   and Terraform provider caches instead of copying roughly 1.9 GiB of local
   auxiliary data into every application image layer.

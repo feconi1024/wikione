@@ -7,15 +7,29 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Added
 
+- A loopback-only `pnpm test:local` acceptance gate for the real Compose stack,
+  covering runtime CSP/CORS, dependency readiness, OpenAPI, PostgreSQL accounts,
+  Redis sessions, live Wikipedia compilation, isolated preview delivery,
+  disabled publishing, account deletion, and credential revocation.
+- A self-recovering local Redis outage drill that proves liveness/readiness
+  semantics and reruns the real-stack acceptance gate after recovery.
+- An isolated PostgreSQL backup/restore drill that uses only the current schema
+  and a synthetic account, verifies the restored migration/data records, and
+  leaves the running local account database unchanged.
+- Automated 320 CSS-pixel reflow and forced-colors accessibility coverage plus
+  a repository security regression test that rejects mutable GitHub Action
+  references and unsafe or implicitly installed Trivy versions.
 - Milestone 3 hardening/public-beta plan and evidence-first completion
   checklist.
 - ADR 0008 settling the source license: MIT is authoritative, and the
   milestone's source-release artifact is delivered as complete corresponding
   source under MIT rather than by relicensing. It supersedes ADR 0004 and
   retains the boundary against copying Wikimedia's GPL CodeMirror extension.
-- A dated Milestone 3 audit record listing every executed gate with its result,
-  the defects the audit found and fixed, and every gate still unmet for want of
-  cloud credentials, a registry, a live domain, or a human tester.
+- A superseding July 31 Milestone 3 local-product audit with retained load,
+  compatibility, and PostgreSQL restore evidence, exact verification results,
+  repaired defects, local startup instructions, and every public-beta gate
+  still unmet for want of cloud credentials, a registry, a live domain,
+  approved contacts, or a human tester.
 - Dedicated accessibility, five-engine browser-compatibility, and deterministic
   desktop/mobile visual-regression gates with reviewed baselines.
 - A complete OpenAPI 3.1 contract with deterministic artifact generation,
@@ -177,6 +191,42 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Fixed
 
+- API and preview readiness checks now fail closed within one second when a
+  dependency stalls; Redis adapters reject reconnecting clients immediately
+  instead of queuing `PING` indefinitely during an outage.
+- CI now runs the real PostgreSQL migration/least-privilege integration test
+  and the desktop/mobile accessibility matrix instead of silently skipping the
+  database path and exercising only desktop Chromium.
+- The root typecheck now includes operational scripts, security tests, and
+  Playwright tests; the local acceptance JSON guard was corrected after this
+  expanded gate exposed its previously unchecked narrowing error.
+- The desktop compiled-preview iframe now occupies the flexible pane row when
+  no parser-warning element exists; explicit grid placement prevents the
+  intrinsic 150-pixel iframe row from expanding the status bar over the pane.
+- Lockfile overrides move vulnerable transitive `fast-uri` and `find-my-way`
+  releases to their fixed versions after the CI filesystem scan identified
+  three newly published HIGH-severity findings.
+- `pnpm container:smoke` now builds current-source smoke images when explicit
+  image references are absent, preventing a local release claim from silently
+  testing stale tags left by an earlier run.
+- OCI builds recursively exclude local worktrees, dependency/build artifacts,
+  and Terraform provider caches instead of copying roughly 1.9 GiB of local
+  auxiliary data into every application image layer.
+- Development Compose ports bind to loopback so local-only account, session,
+  API, preview, and editor services are not exposed to the LAN.
+- The web image accepts exact HTTP localhost origins only when Compose sets an
+  explicit local-development opt-in; production keeps the HTTPS-only default.
+- OCI builds install every workspace manifest up front, persist pnpm security
+  metadata across retries, verify the native Turbo binary, deploy production
+  dependencies offline from the verified store, and disable build telemetry
+  instead of triggering a second implicit install.
+- Local checks ignore Git-excluded agent and editor metadata, including nested
+  `.claude` worktrees, so `pnpm check` evaluates only the WikiOne checkout and
+  does not fail on another tool's independent TypeScript project.
+- GitHub CI and release scans no longer depend on the broken pre-incident
+  Trivy action chain. Workflows now use Aqua's post-incident known-safe
+  SHA-pinned `setup-trivy` 0.2.6 and `trivy-action` 0.35.0 releases, assert the
+  immutable Trivy 0.69.3 binary, and prevent nested scanner setup.
 - `pnpm check` failed at the lint step: the password benchmark imported the
   `@wikione/auth-core` build output, which does not exist when lint and
   typecheck run before any build. It now imports the package source entry point.

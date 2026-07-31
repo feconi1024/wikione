@@ -1,10 +1,49 @@
 import { spawnSync } from 'node:child_process';
 
+const configuredImages = [
+    process.env.API_IMAGE,
+    process.env.PREVIEW_IMAGE,
+    process.env.WEB_IMAGE,
+].filter((value): value is string => Boolean(value?.trim()));
+if (configuredImages.length !== 0 && configuredImages.length !== 3) {
+    throw new Error(
+        'Set API_IMAGE, PREVIEW_IMAGE, and WEB_IMAGE together, or leave all three unset.',
+    );
+}
+
 const imageNames = {
     api: process.env.API_IMAGE ?? 'wikione-api:smoke',
     preview: process.env.PREVIEW_IMAGE ?? 'wikione-preview:smoke',
     web: process.env.WEB_IMAGE ?? 'wikione-web:smoke',
 };
+
+if (configuredImages.length === 0) {
+    const build = spawnSync(
+        'docker',
+        [
+            'buildx',
+            'bake',
+            'api',
+            'preview',
+            'web',
+            '--load',
+            '--set',
+            '*.platform=linux/amd64',
+            '--set',
+            `api.tags=${imageNames.api}`,
+            '--set',
+            `preview.tags=${imageNames.preview}`,
+            '--set',
+            `web.tags=${imageNames.web}`,
+        ],
+        { encoding: 'utf8', stdio: 'inherit' },
+    );
+    if (build.status !== 0) {
+        throw new Error(
+            `Could not build current smoke images: docker buildx bake exited with ${String(build.status)}.`,
+        );
+    }
+}
 
 function inspect(image: string, template: string): string {
     const result = spawnSync(
@@ -91,6 +130,58 @@ if (runtimeConfig.status !== 0) {
     throw new Error(
         `Web runtime-origin generation failed: ${runtimeConfig.stderr}`,
     );
+}
+
+const localRuntimeConfig = spawnSync(
+    'docker',
+    [
+        'run',
+        '--rm',
+        '--read-only',
+        '--tmpfs',
+        '/tmp',
+        '--entrypoint',
+        '/bin/sh',
+        '-e',
+        'ALLOW_INSECURE_LOOPBACK_ORIGINS=true',
+        '-e',
+        'API_ORIGIN=http://127.0.0.1:3000',
+        '-e',
+        'PREVIEW_ORIGIN=http://localhost:4174',
+        imageNames.web,
+        '-c',
+        '/docker-entrypoint.d/20-wikione-runtime-config.sh && grep -F \'apiBaseUrl:"http://127.0.0.1:3000"\' /tmp/wikione-runtime-config.js',
+    ],
+    { encoding: 'utf8', timeout: 15_000 },
+);
+
+if (localRuntimeConfig.status !== 0) {
+    throw new Error(
+        `Opted-in loopback runtime configuration failed: ${localRuntimeConfig.stderr}`,
+    );
+}
+
+const insecureRuntimeConfig = spawnSync(
+    'docker',
+    [
+        'run',
+        '--rm',
+        '--read-only',
+        '--tmpfs',
+        '/tmp',
+        '--entrypoint',
+        '/docker-entrypoint.d/20-wikione-runtime-config.sh',
+        '-e',
+        'API_ORIGIN=http://127.0.0.1:3000',
+        '-e',
+        'PREVIEW_ORIGIN=https://preview.smoke.test',
+        imageNames.web,
+    ],
+    { encoding: 'utf8', timeout: 15_000 },
+);
+
+if (insecureRuntimeConfig.status === 0) {
+    throw new Error('Web runtime configuration accepted HTTP without opt-in');
 }
 
 const unsafeRuntimeConfig = spawnSync(

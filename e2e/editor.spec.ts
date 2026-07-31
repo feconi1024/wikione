@@ -46,9 +46,33 @@ test('@a11y edits wikitext, recompiles continuously, and retains the last good p
     if (!isMobile) {
         const sourceBox = await sourcePane.boundingBox();
         const previewBox = await previewPane.boundingBox();
+        const previewSurfaceBox = await page
+            .locator('.preview-surface')
+            .boundingBox();
+        const previewFrameBox = await page
+            .locator('.preview-surface iframe')
+            .boundingBox();
+        const previewStatusBox = await page
+            .locator('.pane-statusbar--preview')
+            .boundingBox();
         expect(sourceBox).not.toBeNull();
         expect(previewBox).not.toBeNull();
+        expect(previewSurfaceBox).not.toBeNull();
+        expect(previewFrameBox).not.toBeNull();
+        expect(previewStatusBox).not.toBeNull();
         expect(sourceBox?.x ?? 0).toBeLessThan(previewBox?.x ?? 0);
+        expect(previewSurfaceBox?.height ?? 0).toBeGreaterThan(
+            (previewBox?.height ?? 0) * 0.6,
+        );
+        expect(
+            Math.abs(
+                (previewFrameBox?.height ?? 0) -
+                    (previewSurfaceBox?.height ?? 0),
+            ),
+        ).toBeLessThan(2);
+        expect(
+            previewStatusBox?.height ?? Number.POSITIVE_INFINITY,
+        ).toBeLessThan(60);
     }
 
     const editor = page.locator('.cm-content');
@@ -394,6 +418,50 @@ test('@a11y traps modal focus, restores focus, and audits every public route', a
     await page.goto(previewUrl ?? 'about:blank');
     await expect(page.getByRole('main')).toContainText('Welcome to WikiOne');
     await expectNoSeriousAccessibilityViolations(page);
+});
+
+test('@a11y preserves 400% equivalent reflow and visible focus in forced colors', async ({
+    page,
+}) => {
+    // A 1,280 CSS-pixel desktop viewport at 400% browser zoom exposes roughly
+    // 320 CSS pixels. This deterministic proxy complements, but does not
+    // replace, the manual browser-zoom sign-off.
+    await page.setViewportSize({ width: 320, height: 720 });
+    await page.emulateMedia({
+        forcedColors: 'active',
+        reducedMotion: 'reduce',
+    });
+    await mockServices(page);
+
+    await page.goto('/');
+    await expect(compiledBody(page)).toContainText('Welcome to WikiOne');
+    await expectNoDocumentOverflow(page);
+
+    const signIn = page.getByRole('button', { name: 'Sign in', exact: true });
+    await signIn.focus();
+    const focusIndicator = await signIn.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+            style: style.outlineStyle,
+            width: Number.parseFloat(style.outlineWidth),
+        };
+    });
+    expect(focusIndicator.style).not.toBe('none');
+    expect(focusIndicator.width).toBeGreaterThanOrEqual(2);
+    await expectNoSeriousAccessibilityViolations(page, true);
+
+    await page.goto('/privacy');
+    await expect(
+        page.getByRole('heading', { name: 'Privacy and data controls' }),
+    ).toBeVisible();
+    await expectNoDocumentOverflow(page);
+    await expectNoSeriousAccessibilityViolations(page);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Review changes' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectNoDocumentOverflow(page);
+    await expectNoSeriousAccessibilityViolations(page, true);
 });
 
 test('@visual captures deterministic public-beta surfaces', async ({
@@ -757,4 +825,14 @@ async function expectNoSeriousAccessibilityViolations(
                 violation.impact === 'serious',
         ),
     ).toEqual([]);
+}
+
+async function expectNoDocumentOverflow(page: Page): Promise<void> {
+    expect(
+        await page.evaluate(
+            () =>
+                document.documentElement.scrollWidth <=
+                document.documentElement.clientWidth,
+        ),
+    ).toBe(true);
 }

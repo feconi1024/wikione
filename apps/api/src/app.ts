@@ -53,6 +53,7 @@ import type { RateLimitStoreResource } from './redis-rate-limit-store.js';
 import { findSupportedWiki, supportedWikis } from './wiki-registry.js';
 
 const defaultPreviewTtlMilliseconds = 120_000;
+const defaultReadinessCheckTimeoutMilliseconds = 1_000;
 const defaultPreviewBaseUrl = 'http://127.0.0.1:4174';
 const defaultEditorOrigins = [
     'http://127.0.0.1:5173',
@@ -90,6 +91,7 @@ export interface BuildApiOptions {
     readonly now?: () => number;
     readonly randomId?: () => string;
     readonly rateLimitStore?: RateLimitStoreResource;
+    readonly readinessCheckTimeoutMilliseconds?: number;
     readonly secureCookies?: boolean;
     readonly sessionKeyRing?: SessionKeyRing;
     readonly trustProxy?: boolean | number;
@@ -108,6 +110,10 @@ export async function buildApi(
     );
     const ttlMilliseconds = readPreviewTtl(
         options.previewTtlMilliseconds ?? defaultPreviewTtlMilliseconds,
+    );
+    const readinessCheckTimeoutMilliseconds = readReadinessCheckTimeout(
+        options.readinessCheckTimeoutMilliseconds ??
+            defaultReadinessCheckTimeoutMilliseconds,
     );
     const now = options.now ?? Date.now;
     const randomId = options.randomId ?? createPreviewId;
@@ -281,25 +287,28 @@ export async function buildApi(
             },
         },
         async (request, reply) => {
-            const readiness = await runReadinessChecks([
-                {
-                    name: 'authentication-store',
-                    check: async () => authentication.ready(),
-                },
-                {
-                    name: 'preview-store',
-                    check: async () => previewStore.ready(),
-                },
-                ...(options.rateLimitStore
-                    ? [
-                          {
-                              name: 'rate-limit-store',
-                              check: async () =>
-                                  options.rateLimitStore?.ready(),
-                          },
-                      ]
-                    : []),
-            ]);
+            const readiness = await runReadinessChecks(
+                [
+                    {
+                        name: 'authentication-store',
+                        check: async () => authentication.ready(),
+                    },
+                    {
+                        name: 'preview-store',
+                        check: async () => previewStore.ready(),
+                    },
+                    ...(options.rateLimitStore
+                        ? [
+                              {
+                                  name: 'rate-limit-store',
+                                  check: async () =>
+                                      options.rateLimitStore?.ready(),
+                              },
+                          ]
+                        : []),
+                ],
+                readinessCheckTimeoutMilliseconds,
+            );
             if (!readiness.ready) {
                 request.log.warn(
                     { checks: readiness.checks, event: 'readiness-failed' },
@@ -1029,14 +1038,17 @@ function readinessResponseSchema(status: 'ready' | 'not-ready') {
     } as const;
 }
 
-async function runReadinessChecks(checks: readonly ReadinessCheck[]): Promise<{
+async function runReadinessChecks(
+    checks: readonly ReadinessCheck[],
+    timeoutMilliseconds: number,
+): Promise<{
     readonly ready: boolean;
     readonly checks: Readonly<Record<string, 'ready' | 'failed'>>;
 }> {
     const results = await Promise.all(
         checks.map(async ({ check, name }) => {
             try {
-                await check();
+                await withTimeout(check, timeoutMilliseconds);
                 return [name, 'ready'] as const;
             } catch {
                 return [name, 'failed'] as const;
@@ -1050,6 +1062,36 @@ async function runReadinessChecks(checks: readonly ReadinessCheck[]): Promise<{
         ready: Object.values(statuses).every((status) => status === 'ready'),
         checks: statuses,
     };
+}
+
+async function withTimeout(
+    check: () => Promise<void>,
+    timeoutMilliseconds: number,
+): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+            () => reject(new Error('Readiness dependency timed out.')),
+            timeoutMilliseconds,
+        );
+        timer.unref();
+    });
+    try {
+        await Promise.race([check(), timeout]);
+    } finally {
+        if (timer) {
+            clearTimeout(timer);
+        }
+    }
+}
+
+function readReadinessCheckTimeout(value: number): number {
+    if (!Number.isSafeInteger(value) || value < 1 || value > 30_000) {
+        throw new RangeError(
+            'Readiness check timeout must be an integer from 1 to 30000 milliseconds.',
+        );
+    }
+    return value;
 }
 
 function normalizeStatusCode(value: number | undefined): number {

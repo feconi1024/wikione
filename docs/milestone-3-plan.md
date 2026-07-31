@@ -136,6 +136,7 @@ pnpm test:security
 pnpm test:compat
 pnpm test:load
 pnpm test:live
+pnpm test:local:milestone3
 pnpm openapi:check
 pnpm build:reproducible
 docker compose config --quiet

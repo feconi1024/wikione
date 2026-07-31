@@ -52,13 +52,36 @@ API and preview use separate Redis key prefixes. Browser drafts remain local.
 ## Containers
 
 ```sh
-docker compose up --build
+docker compose up --build --wait
+pnpm test:local
 ```
 
 Compose builds explicit `web`, `api`, and `preview` targets, waits for
 PostgreSQL/Redis and service health checks, persists PostgreSQL in the named
 `account-data` volume, and runs Redis without persistence. The editor is then
-available on port 5173. CI builds every target and validates Compose syntax.
+available on port 5173. Every published development port is bound to loopback;
+the checked-in fixed credentials must never be used on a public interface. CI
+builds every target and validates Compose syntax.
+
+`pnpm test:local` is the real-stack acceptance gate. It verifies web CSP and
+runtime configuration, API CORS/OpenAPI/readiness, PostgreSQL-backed account
+creation and deletion, Redis-backed session recovery, the disabled publishing
+boundary, and an isolated live Wikipedia preview. Its temporary account is
+deleted even when a later check fails. The preview check intentionally needs
+internet access but remains anonymous and read-only.
+
+`pnpm test:local:resilience` additionally stops only the local Redis container,
+proves API/preview liveness remains 200 while dependency readiness becomes 503
+with `Retry-After`, restarts Redis in a `finally` recovery path, and then reruns
+the complete acceptance gate. Existing local sessions and previews are expected
+to expire because Redis is intentionally ephemeral.
+
+`pnpm test:local:restore` copies only the current PostgreSQL schema into a
+temporary database, inserts one synthetic account, performs a binary
+`pg_dump`/`pg_restore` round trip into a second isolated database, verifies the
+account and migration record, and removes both databases in a `finally` path.
+It never dumps local account rows. `pnpm test:local:milestone3` runs the
+resilience, acceptance, and restore drills as one local release gate.
 
 For public deployment, replace loopback origins/CSP values, use HTTPS, keep the
 preview hostname separate, set `COOKIE_SECURE=true`, and provide independent

@@ -8,6 +8,11 @@ on:
 permissions:
     contents: read
 
+env:
+    # Aqua's GHSA-69fq-xp46-6x23 advisory identifies v0.69.3 as a
+    # known-safe immutable binary after the March 2026 supply-chain incident.
+    TRIVY_VERSION: v0.69.3
+
 jobs:
     # Dependency, secret, and license regressions must fail the pull request
     # that introduces them. The release workflow repeats these scans against
@@ -23,17 +28,39 @@ jobs:
             - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+              with:
+                  cache: true
+                  version: ${{ env.TRIVY_VERSION }}
+            - name: Assert trusted Trivy version
+              run: |
+                  test "$(trivy --version | head -n 1)" = 'Version: 0.69.3'
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   scan-type: fs
                   scan-ref: .
                   scanners: vuln,secret,license
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
 
     verify:
         runs-on: ubuntu-24.04
         timeout-minutes: 25
+        services:
+            postgres:
+                image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+                env:
+                    POSTGRES_DB: wikione
+                    POSTGRES_PASSWORD: wikione
+                    POSTGRES_USER: wikione
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U wikione -d wikione"
+                    --health-interval 5s
+                    --health-timeout 3s
+                    --health-retries 10
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
@@ -48,7 +75,10 @@ jobs:
                   terraform_version: 1.15.7
                   terraform_wrapper: false
             - run: pnpm install --frozen-lockfile
-            - run: pnpm check
+            - name: Run repository and PostgreSQL integration gates
+              env:
+                  POSTGRES_INTEGRATION_URL: postgres://wikione:wikione@127.0.0.1:5432/wikione
+              run: pnpm check
             # Adds the source-boundary audit (live edit adapters, Wikimedia
             # token storage, unsafe HTML insertion, embedded keys, sensitive
             # request logging) that `pnpm check` does not run.
@@ -59,14 +89,25 @@ jobs:
                   terraform -chdir=infra/terraform fmt -check -recursive
                   terraform -chdir=infra/terraform init -backend=false -input=false
                   terraform -chdir=infra/terraform validate
-            - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+            - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+              with:
+                  cache: true
+                  version: ${{ env.TRIVY_VERSION }}
+            - name: Assert trusted Trivy version
+              run: |
+                  test "$(trivy --version | head -n 1)" = 'Version: 0.69.3'
+            - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
                   scan-type: config
                   scan-ref: infra/terraform
                   severity: HIGH,CRITICAL
                   exit-code: '1'
+                  skip-setup-trivy: true
             - run: pnpm exec playwright install --with-deps chromium
             - run: pnpm test:e2e
+            # The editor E2E run covers desktop Chromium. Repeat tagged
+            # accessibility flows on mobile Chromium to gate responsive UI.
+            - run: pnpm test:a11y
             - run: docker build --target api --tag wikione-api:ci .
             - run: docker build --target preview --tag wikione-preview:ci .
             - run: docker build --target web --tag wikione-web:ci .

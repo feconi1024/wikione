@@ -1,12 +1,12 @@
 # Milestone 3 completion checklist
 
 Date opened: 2026-07-19
-Date audited: 2026-07-28
+Date audited: 2026-07-31
 
 This checklist is deliberately evidence-first. Leave an item unchecked until
 the cited artifact or external state proves the complete requirement. Every
-checked item below was re-executed on 2026-07-28 and is recorded in the
-[final audit record](evidence/milestone-3-audit-2026-07-28.md).
+checked item below was re-executed on 2026-07-31 and is recorded in the
+[final audit record](evidence/milestone-3-audit-2026-07-31.md).
 
 Unchecked items are not incomplete engineering. Each one needs project-owned
 cloud credentials, a registry, a live domain, or a human tester, and none of
@@ -16,7 +16,7 @@ them can be satisfied from a repository checkout.
 
 - [x] Accessibility automation covers every first-party route, modal, keyboard
       flow, responsive mode, and the isolated preview document as a top-level
-      document. `pnpm test:a11y` reports 14 passes with no serious or critical
+      document. `pnpm test:a11y` reports 16 passes with no serious or critical
       axe findings, and [the accessibility guide](accessibility.md) records the
       manual checklist.
 - [ ] Human screen-reader, browser-zoom, and forced-colors sign-off is recorded.
@@ -24,20 +24,22 @@ them can be satisfied from a repository checkout.
       is still "not yet recorded"; automation cannot substitute for it.
 - [x] Security tests and CI scans cover application, dependencies, secrets,
       licenses, OCI images, headers, isolation boundaries, and disabled writes.
-      `pnpm test:security` passes with zero source-boundary findings, and CI now
+      `pnpm test:security` reports 7 passes and zero source-boundary findings,
+      `pnpm audit --prod --audit-level high` reports no known vulnerabilities,
+      and CI now
       runs gitleaks, Trivy `vuln,secret,license`, the source audit, and the
       container hardening checks on every push.
 - [x] Load/resilience thresholds pass against an isolated release stack without
-      sending load to Wikimedia. See the [HTTP](evidence/milestone-3-load-2026-07-28.json)
-      and [password](evidence/milestone-3-password-load-2026-07-28.json) reports.
+      sending load to Wikimedia. See the [HTTP](evidence/milestone-3-load-2026-07-31.json)
+      and [password](evidence/milestone-3-password-load-2026-07-31.json) reports.
 - [x] Chromium, Firefox, WebKit, mobile Chromium, and mobile WebKit pass the
-      supported browser suite: 45 passed on 2026-07-28. WebKit projects carry
+      supported browser suite: 50 passed on 2026-07-31. WebKit projects carry
       their own timing budgets so a slow engine is not misreported as a
       compatibility failure.
 - [x] Reviewed desktop/mobile visual baselines pass without unexplained drift.
 - [x] MediaWiki contract fixtures and the read-only live compatibility matrix
       pass for every supported target in the
-      [compatibility report](evidence/milestone-3-compatibility-2026-07-28.json).
+      [compatibility report](evidence/milestone-3-compatibility-2026-07-31.json).
 
 ## Deployment and operations
 
@@ -57,10 +59,16 @@ them can be satisfied from a repository checkout.
 - [x] CSP, security headers, cookie flags, exact-origin CORS, the cookie-free
       preview boundary, and the disabled publish endpoint pass black-box tests
       against the built applications.
+- [x] The complete loopback-only production stack passes account, session,
+      compile, preview, disabled-write, deletion, Redis-outage/recovery, and
+      isolated PostgreSQL backup/restore drills through
+      `pnpm test:local:milestone3`.
 - [ ] The same headers pass against deployed production origins over real TLS.
 - [ ] Configuration/release-state and PostgreSQL retention are backed up and
       restore-tested; Redis sessions/previews and browser drafts are excluded.
-      The retention policy and exclusions are defined; no restore has been run.
+      The local isolated PostgreSQL restore drill passes and proves the
+      exclusions, but no versioned cloud configuration or managed PostgreSQL
+      point-in-time restore has been exercised.
 - [ ] Dashboards, synthetics, SLOs, and actionable alerts are provisioned and
       test notifications reach the approved operator channel.
 - [ ] Canary promotion and automatic/operator rollback are exercised against a
@@ -95,10 +103,11 @@ them can be satisfied from a repository checkout.
 
 ## Final audit record
 
-The 2026-07-28 audit — exact commands, versions, results, retained reports, the
+The 2026-07-31 audit — exact commands, versions, results, retained reports, the
 defects found and fixed, and every unmet external gate — is recorded in
-[the audit record](evidence/milestone-3-audit-2026-07-28.md).
+[the audit record](evidence/milestone-3-audit-2026-07-31.md).
 
-Milestone 3 engineering is complete. Public beta remains gated on the unchecked
-items above, all of which need external resources or a human tester rather than
-further implementation.
+The locally runnable Milestone 3 product and repository engineering are
+complete. Public beta remains gated on the unchecked items above, all of which
+need external resources, an approved contact/channel, or a human tester rather
+than further implementation in this checkout.

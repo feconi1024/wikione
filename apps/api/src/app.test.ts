@@ -100,6 +100,28 @@ describe('Milestone 1 API', () => {
         expect(response.body).not.toContain('secret.internal');
     });
 
+    it('bounds stalled dependency checks and returns not-ready', async () => {
+        const store = new MemoryPreviewStore();
+        vi.spyOn(store, 'ready').mockImplementation(
+            async () => new Promise<void>(() => undefined),
+        );
+        const app = await buildApi({
+            previewStore: store,
+            readinessCheckTimeoutMilliseconds: 10,
+        });
+        openApps.push(app);
+
+        const startedAt = performance.now();
+        const response = await app.inject({ method: 'GET', url: '/readyz' });
+
+        expect(response.statusCode).toBe(503);
+        expect(performance.now() - startedAt).toBeLessThan(500);
+        expect(response.json()).toMatchObject({
+            status: 'not-ready',
+            checks: { 'preview-store': 'failed' },
+        });
+    });
+
     it('lists only fixed supported wiki descriptors', async () => {
         const app = await createTestApi();
         const response = await app.inject({ method: 'GET', url: '/v1/wikis' });

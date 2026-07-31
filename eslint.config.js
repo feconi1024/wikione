@@ -6,6 +6,9 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
     {
         ignores: [
+            '.agents/**',
+            '.claude/**',
+            '.codex/**',
             '**/dist/**',
             '**/coverage/**',
             '**/node_modules/**',

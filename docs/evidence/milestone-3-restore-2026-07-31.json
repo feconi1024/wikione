@@ -1,0 +1,24 @@
+{
+    "schemaVersion": 1,
+    "generatedAt": "2026-07-31T16:18:36.722Z",
+    "status": "passed",
+    "scenario": "A schema-only clone receives synthetic data, is backed up, restored into an isolated database, verified, and removed.",
+    "durationMilliseconds": 4441.44,
+    "evidence": {
+        "backupBytes": 3735,
+        "backupMilliseconds": 352.24,
+        "restoreMilliseconds": 310.87,
+        "mainAccountCountUnchanged": true,
+        "restoredSchemaMigrationVersion": 1,
+        "restoredSyntheticAccounts": 1,
+        "retainedClasses": [
+            "PostgreSQL account schema and durable account rows"
+        ],
+        "excludedClasses": [
+            "browser IndexedDB drafts",
+            "Redis sessions",
+            "Redis preview bundles",
+            "rendered HTML and raw wikitext"
+        ]
+    }
+}

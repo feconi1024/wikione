@@ -1,10 +1,49 @@
 import { spawnSync } from 'node:child_process';
 
+const configuredImages = [
+    process.env.API_IMAGE,
+    process.env.PREVIEW_IMAGE,
+    process.env.WEB_IMAGE,
+].filter((value): value is string => Boolean(value?.trim()));
+if (configuredImages.length !== 0 && configuredImages.length !== 3) {
+    throw new Error(
+        'Set API_IMAGE, PREVIEW_IMAGE, and WEB_IMAGE together, or leave all three unset.',
+    );
+}
+
 const imageNames = {
     api: process.env.API_IMAGE ?? 'wikione-api:smoke',
     preview: process.env.PREVIEW_IMAGE ?? 'wikione-preview:smoke',
     web: process.env.WEB_IMAGE ?? 'wikione-web:smoke',
 };
+
+if (configuredImages.length === 0) {
+    const build = spawnSync(
+        'docker',
+        [
+            'buildx',
+            'bake',
+            'api',
+            'preview',
+            'web',
+            '--load',
+            '--set',
+            '*.platform=linux/amd64',
+            '--set',
+            `api.tags=${imageNames.api}`,
+            '--set',
+            `preview.tags=${imageNames.preview}`,
+            '--set',
+            `web.tags=${imageNames.web}`,
+        ],
+        { encoding: 'utf8', stdio: 'inherit' },
+    );
+    if (build.status !== 0) {
+        throw new Error(
+            `Could not build current smoke images: docker buildx bake exited with ${String(build.status)}.`,
+        );
+    }
+}
 
 function inspect(image: string, template: string): string {
     const result = spawnSync(

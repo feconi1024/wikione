@@ -204,6 +204,9 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Lockfile overrides move vulnerable transitive `fast-uri` and `find-my-way`
   releases to their fixed versions after the CI filesystem scan identified
   three newly published HIGH-severity findings.
+- `pnpm container:smoke` now builds current-source smoke images when explicit
+  image references are absent, preventing a local release claim from silently
+  testing stale tags left by an earlier run.
 - OCI builds recursively exclude local worktrees, dependency/build artifacts,
   and Terraform provider caches instead of copying roughly 1.9 GiB of local
   auxiliary data into every application image layer.

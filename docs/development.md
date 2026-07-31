@@ -52,13 +52,23 @@ API and preview use separate Redis key prefixes. Browser drafts remain local.
 ## Containers
 
 ```sh
-docker compose up --build
+docker compose up --build --wait
+pnpm test:local
 ```
 
 Compose builds explicit `web`, `api`, and `preview` targets, waits for
 PostgreSQL/Redis and service health checks, persists PostgreSQL in the named
 `account-data` volume, and runs Redis without persistence. The editor is then
-available on port 5173. CI builds every target and validates Compose syntax.
+available on port 5173. Every published development port is bound to loopback;
+the checked-in fixed credentials must never be used on a public interface. CI
+builds every target and validates Compose syntax.
+
+`pnpm test:local` is the real-stack acceptance gate. It verifies web CSP and
+runtime configuration, API CORS/OpenAPI/readiness, PostgreSQL-backed account
+creation and deletion, Redis-backed session recovery, the disabled publishing
+boundary, and an isolated live Wikipedia preview. Its temporary account is
+deleted even when a later check fails. The preview check intentionally needs
+internet access but remains anonymous and read-only.
 
 For public deployment, replace loopback origins/CSP values, use HTTPS, keep the
 preview hostname separate, set `COOKIE_SECURE=true`, and provide independent

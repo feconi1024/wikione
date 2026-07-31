@@ -7,6 +7,10 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Added
 
+- A loopback-only `pnpm test:local` acceptance gate for the real Compose stack,
+  covering runtime CSP/CORS, dependency readiness, OpenAPI, PostgreSQL accounts,
+  Redis sessions, live Wikipedia compilation, isolated preview delivery,
+  disabled publishing, account deletion, and credential revocation.
 - Automated 320 CSS-pixel reflow and forced-colors accessibility coverage plus
   a repository security regression test that rejects mutable GitHub Action
   references and unsafe or implicitly installed Trivy versions.
@@ -180,6 +184,17 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ### Fixed
 
+- OCI builds recursively exclude local worktrees, dependency/build artifacts,
+  and Terraform provider caches instead of copying roughly 1.9 GiB of local
+  auxiliary data into every application image layer.
+- Development Compose ports bind to loopback so local-only account, session,
+  API, preview, and editor services are not exposed to the LAN.
+- The web image accepts exact HTTP localhost origins only when Compose sets an
+  explicit local-development opt-in; production keeps the HTTPS-only default.
+- OCI builds install every workspace manifest up front, persist pnpm security
+  metadata across retries, verify the native Turbo binary, deploy production
+  dependencies offline from the verified store, and disable build telemetry
+  instead of triggering a second implicit install.
 - Local checks ignore Git-excluded agent and editor metadata, including nested
   `.claude` worktrees, so `pnpm check` evaluates only the WikiOne checkout and
   does not fail on another tool's independent TypeScript project.

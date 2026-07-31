@@ -34,6 +34,7 @@
         "test:load": "tsx scripts/load-test.ts && pnpm test:load:password",
         "test:load:password": "tsx scripts/benchmark-password.ts",
         "test:live": "pnpm --filter @wikione/render-spike... build && pnpm --filter @wikione/render-spike validate:live",
+        "test:local": "tsx scripts/local-acceptance.ts",
         "test:security": "vitest run tests/security && tsx scripts/security-audit.ts",
         "test:visual": "playwright test --config e2e/playwright.config.ts --grep @visual --project=chromium-desktop --project=mobile-chrome",
         "typecheck": "turbo run typecheck"

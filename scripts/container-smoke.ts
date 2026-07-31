@@ -93,6 +93,58 @@ if (runtimeConfig.status !== 0) {
     );
 }
 
+const localRuntimeConfig = spawnSync(
+    'docker',
+    [
+        'run',
+        '--rm',
+        '--read-only',
+        '--tmpfs',
+        '/tmp',
+        '--entrypoint',
+        '/bin/sh',
+        '-e',
+        'ALLOW_INSECURE_LOOPBACK_ORIGINS=true',
+        '-e',
+        'API_ORIGIN=http://127.0.0.1:3000',
+        '-e',
+        'PREVIEW_ORIGIN=http://localhost:4174',
+        imageNames.web,
+        '-c',
+        '/docker-entrypoint.d/20-wikione-runtime-config.sh && grep -F \'apiBaseUrl:"http://127.0.0.1:3000"\' /tmp/wikione-runtime-config.js',
+    ],
+    { encoding: 'utf8', timeout: 15_000 },
+);
+
+if (localRuntimeConfig.status !== 0) {
+    throw new Error(
+        `Opted-in loopback runtime configuration failed: ${localRuntimeConfig.stderr}`,
+    );
+}
+
+const insecureRuntimeConfig = spawnSync(
+    'docker',
+    [
+        'run',
+        '--rm',
+        '--read-only',
+        '--tmpfs',
+        '/tmp',
+        '--entrypoint',
+        '/docker-entrypoint.d/20-wikione-runtime-config.sh',
+        '-e',
+        'API_ORIGIN=http://127.0.0.1:3000',
+        '-e',
+        'PREVIEW_ORIGIN=https://preview.smoke.test',
+        imageNames.web,
+    ],
+    { encoding: 'utf8', timeout: 15_000 },
+);
+
+if (insecureRuntimeConfig.status === 0) {
+    throw new Error('Web runtime configuration accepted HTTP without opt-in');
+}
+
 const unsafeRuntimeConfig = spawnSync(
     'docker',
     [

@@ -4,8 +4,9 @@ services:
             context: .
             target: web
         ports:
-            - '5173:8080'
+            - '127.0.0.1:5173:8080'
         environment:
+            ALLOW_INSECURE_LOOPBACK_ORIGINS: 'true'
             API_ORIGIN: http://127.0.0.1:3000
             PREVIEW_ORIGIN: http://127.0.0.1:4174
         depends_on:
@@ -47,7 +48,7 @@ services:
             SESSION_KEY_ID: compose-development
             SESSION_LOOKUP_HMAC_KEY_BASE64: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
         ports:
-            - '3000:3000'
+            - '127.0.0.1:3000:3000'
         depends_on:
             postgres:
                 condition: service_healthy
@@ -83,7 +84,7 @@ services:
             PREVIEW_PORT: 4174
             REDIS_URL: redis://redis:6379
         ports:
-            - '4174:4174'
+            - '127.0.0.1:4174:4174'
         depends_on:
             redis:
                 condition: service_healthy
@@ -111,7 +112,7 @@ services:
         image: redis:7.4-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
         command: ['redis-server', '--save', '', '--appendonly', 'no']
         ports:
-            - '6379:6379'
+            - '127.0.0.1:6379:6379'
         healthcheck:
             test: ['CMD', 'redis-cli', 'ping']
             interval: 5s
@@ -138,7 +139,7 @@ services:
             POSTGRES_PASSWORD: wikione
             POSTGRES_USER: wikione
         ports:
-            - '5432:5432'
+            - '127.0.0.1:5432:5432'
         volumes:
             - account-data:/var/lib/postgresql/data
         healthcheck:

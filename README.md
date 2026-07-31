@@ -62,8 +62,14 @@ Open `http://127.0.0.1:5173`. The API and isolated preview service listen on
 ports 3000 and 4174. Alternatively, build and start the complete stack:
 
 ```sh
-docker compose up --build
+docker compose up --build --wait
+pnpm test:local
 ```
+
+Compose binds the editor, API, preview, PostgreSQL, and Redis ports to loopback
+only. `pnpm test:local` exercises the running production images, creates and
+deletes a temporary first-party account, and performs one anonymous live
+Wikipedia compilation; it never submits an edit.
 
 Run repository and browser gates with:
 

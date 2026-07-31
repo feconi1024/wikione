@@ -4,6 +4,7 @@ FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+ENV TURBO_TELEMETRY_DISABLED=1
 WORKDIR /workspace
 
 RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
@@ -13,14 +14,20 @@ RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/preview/package.json apps/preview/package.json
+COPY apps/render-spike/package.json apps/render-spike/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages ./packages
-RUN --mount=type=cache,id=wikione-pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=wikione-pnpm,target=/pnpm/store \
+    --mount=type=cache,id=wikione-pnpm-metadata,target=/root/.cache/pnpm \
+    pnpm install --frozen-lockfile \
+    && pnpm exec turbo --version
 
 COPY . .
-RUN pnpm build \
-    && pnpm --filter @wikione/api deploy --prod --legacy /opt/wikione/api \
-    && pnpm --filter @wikione/preview deploy --prod --legacy /opt/wikione/preview
+RUN --mount=type=cache,id=wikione-pnpm,target=/pnpm/store \
+    --mount=type=cache,id=wikione-pnpm-metadata,target=/root/.cache/pnpm \
+    pnpm build \
+    && pnpm --offline --filter @wikione/api deploy --prod --legacy /opt/wikione/api \
+    && pnpm --offline --filter @wikione/preview deploy --prod --legacy /opt/wikione/preview
 
 FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS node-runtime
 

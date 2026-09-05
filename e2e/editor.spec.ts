@@ -682,12 +682,12 @@ test('all toolbar commands preserve selection and support undo and redo', async 
         await replaceEditorSource(page, editor, 'sample');
         await selectAllEditorText(editor);
         await page.getByRole('button', { name, exact: true }).click();
-        await expect(editor).toContainText(expected!);
+        await expect(editor).toContainText(expected);
         await expect(editor).toBeFocused();
         await editor.press('Control+z');
         await expect(editor).toHaveText('sample');
         await editor.press('Control+y');
-        await expect(editor).toContainText(expected!);
+        await expect(editor).toContainText(expected);
     }
 });
 
@@ -823,6 +823,154 @@ test('entering a page to load cannot overwrite its existing local draft', async 
     await expect(page.locator('.cm-content')).toContainText(
         'Remote wiki source',
     );
+});
+
+test('clearing the source removes stale compiled content and can compile again', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.goto('/');
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    const editor = page.locator('.cm-content');
+    await editor.click();
+    await selectAllEditorText(editor);
+    await editor.press('Backspace');
+    await expect(page.locator('.preview-surface iframe')).toHaveCount(0);
+    await expect(page.locator('.status-pill')).toHaveText('Waiting to compile');
+    await replaceEditorSource(page, editor, 'A fresh preview');
+    await expect(compiledBody(page)).toContainText('A fresh preview');
+});
+
+test('account error recovery, session refresh, password and deletion controls use the mocked API', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.goto('/');
+    const signIn = async () => {
+        await page
+            .getByRole('button', { name: 'Sign in', exact: true })
+            .click();
+        await page.getByLabel('Username', { exact: true }).fill('Example');
+        await page
+            .getByLabel('Password', { exact: true })
+            .fill('synthetic test password');
+        await page
+            .locator('form')
+            .getByRole('button', { name: 'Sign in', exact: true })
+            .click();
+    };
+    const rejectLogin: Parameters<Page['route']>[1] = (route) =>
+        route.fulfill({
+            status: 401,
+            json: {
+                code: 'invalid-credentials',
+                message: 'Test sign-in rejected.',
+            },
+        });
+    await page.route(`${apiBaseUrl}/v1/auth/login`, rejectLogin);
+    await signIn();
+    await expect(page.getByRole('alert')).toHaveText('Test sign-in rejected.');
+    await page.getByRole('button', { name: 'Close sign-in' }).click();
+    await page.unroute(`${apiBaseUrl}/v1/auth/login`, rejectLogin);
+    await signIn();
+    const identity = page.getByRole('button', {
+        name: 'Example editor account menu',
+    });
+    await identity.click();
+    await page.getByRole('menuitem', { name: 'Refresh session' }).click();
+    await expect(page.getByText('WikiOne session refreshed.')).toBeVisible();
+    await identity.click();
+    await page.getByRole('menuitem', { name: 'Account and security' }).click();
+    await page
+        .getByLabel('Current password', { exact: true })
+        .fill('synthetic test password');
+    await page
+        .getByLabel('New password', { exact: true })
+        .fill('updated synthetic password');
+    await page
+        .getByRole('button', { name: 'Change password', exact: true })
+        .click();
+    await expect(
+        page.getByText('Password changed and previous sessions revoked.'),
+    ).toBeVisible();
+    await expect(
+        page.getByLabel('Current password', { exact: true }),
+    ).toBeEmpty();
+    await page.getByRole('button', { name: 'Sign out everywhere' }).click();
+    await expect(
+        page.getByRole('button', { name: 'Sign in', exact: true }),
+    ).toBeVisible();
+    await signIn();
+    await identity.click();
+    await page.getByRole('menuitem', { name: 'Account and security' }).click();
+    await expect(
+        page.getByRole('button', { name: 'Delete my account' }),
+    ).toBeDisabled();
+    await page
+        .getByLabel('Password', { exact: true })
+        .fill('synthetic test password');
+    await page.getByLabel('Type DELETE to confirm').fill('DELETE');
+    await page.getByRole('button', { name: 'Delete my account' }).click();
+    await expect(
+        page.getByRole('button', { name: 'Sign in', exact: true }),
+    ).toBeVisible();
+});
+
+test('manual conflict resolution and every watchlist choice remain usable', async ({
+    page,
+}) => {
+    const state = await mockServices(page);
+    state.prepareResult = {
+        status: 'conflict',
+        reason: 'revision-changed',
+        latestRevision: { id: 124, timestamp: generatedAt },
+        latestSource: '== Earth ==\n\nTheir edit',
+    };
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Load page' }).click();
+    await replaceEditorSource(
+        page,
+        page.locator('.cm-content'),
+        '== Earth ==\n\nMy edit',
+    );
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    await page.getByRole('button', { name: 'Review changes' }).click();
+    await expect(
+        page.getByRole('button', { name: 'Check latest revision' }),
+    ).toBeDisabled();
+    await page.getByLabel(/Edit summary/u).fill('Synthetic conflict check');
+    for (const name of [
+        'Use wiki preference',
+        'Watch this page',
+        'Unwatch this page',
+        'Leave unchanged',
+    ]) {
+        const radio = page.getByRole('radio', { name, exact: true });
+        await radio.check();
+        await expect(radio).toBeChecked();
+    }
+    await page
+        .getByText('How target-wiki rejections will be handled', {
+            exact: true,
+        })
+        .click();
+    await expect(
+        page.getByText('Revision verification', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Check latest revision' }).click();
+    await page.getByRole('radio', { name: /Keep mine/u }).check();
+    await expect(
+        page.getByRole('button', { name: 'Apply resolution' }),
+    ).toBeEnabled();
+    await page.locator('.conflict-region textarea').fill('Both edits combined');
+    await expect(
+        page.getByRole('radio', { name: /Use manual text/u }),
+    ).toBeChecked();
+    await page.getByRole('button', { name: 'Apply resolution' }).click();
+    await expect(page.locator('.cm-content')).toContainText(
+        'Both edits combined',
+    );
+    expect(state.publishRequests).toBe(0);
 });
 
 async function mockServices(page: Page): Promise<MockState> {

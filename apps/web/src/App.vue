@@ -342,6 +342,9 @@ async function restoreInitialDraft(): Promise<void> {
 function schedulePreview(): void {
     if (!title.value.trim() || !source.value.trim()) {
         coordinator.cancel();
+        previewUrl.value = '';
+        previewWarnings.value = [];
+        previewGeneratedAt.value = undefined;
         return;
     }
     const request: PreviewRequest = {

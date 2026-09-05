@@ -473,21 +473,25 @@ function errorTitle(category: NormalizedPublishError['category']): string {
                                 />
                                 Use latest
                             </label>
-                            <label>
-                                <span>Resolve manually</span>
-                                <textarea
-                                    v-model="manualSources[segment.id]"
-                                    rows="5"
-                                    @focus="choices[segment.id] = 'manual'"
-                                ></textarea>
-                                <input
-                                    v-model="choices[segment.id]"
-                                    type="radio"
-                                    :name="`conflict-${segment.id}`"
-                                    value="manual"
-                                />
-                                Use manual text
-                            </label>
+                            <div class="conflict-manual">
+                                <label>
+                                    <span>Resolve manually</span>
+                                    <textarea
+                                        v-model="manualSources[segment.id]"
+                                        rows="5"
+                                        @focus="choices[segment.id] = 'manual'"
+                                    ></textarea>
+                                </label>
+                                <label>
+                                    <input
+                                        v-model="choices[segment.id]"
+                                        type="radio"
+                                        :name="`conflict-${segment.id}`"
+                                        value="manual"
+                                    />
+                                    Use manual text
+                                </label>
+                            </div>
                         </div>
                     </section>
                 </template>

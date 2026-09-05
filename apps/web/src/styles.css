@@ -1249,7 +1249,8 @@ textarea:focus-visible,
     gap: 10px;
 }
 
-.conflict-columns label {
+.conflict-columns label,
+.conflict-manual {
     display: grid;
     gap: 7px;
     align-content: start;

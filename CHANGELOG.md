@@ -16,6 +16,10 @@ All notable changes to WikiOne are documented in this file. The format follows
 - Added an installed-Edge test configuration and browser coverage for all
   toolbar commands, undo/redo, outline/search/snippets, pointer resizing,
   navigation, request coalescing/retry, and draft restore/replacement/discard.
+- Clear stale compiled content when all source text is removed, and provide
+  separate accessible labels for the manual conflict textarea and radio.
+- Extend Edge coverage to account error recovery, session refresh, password
+  and deletion controls using mocked responses, and manual conflict choices.
 
 ### Local preview recovery — 2026-09-05
 

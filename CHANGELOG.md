@@ -20,6 +20,11 @@ All notable changes to WikiOne are documented in this file. The format follows
   separate accessible labels for the manual conflict textarea and radio.
 - Extend Edge coverage to account error recovery, session refresh, password
   and deletion controls using mocked responses, and manual conflict choices.
+- Allow rendered article links to open sandboxed tabs; the preview previously
+  requested new tabs but its iframe sandbox blocked them. Preserve the
+  separate origin, no-opener/no-referrer links, and top-navigation restrictions.
+- Keep citation and backlink fragments inside the generated preview instead
+  of opening the upstream wiki's base URL in another tab.
 
 ### Local preview recovery — 2026-09-05
 

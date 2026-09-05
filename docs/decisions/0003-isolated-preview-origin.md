@@ -21,3 +21,10 @@ cookies out of target-controlled code.
 The preview needs a restrictive resource policy and read-only proxy in
 production. Parent/child messages are untrusted and cannot perform privileged
 actions. Some personalized features are intentionally unavailable.
+
+Article links open in a new tab using `noopener noreferrer`. The iframe allows
+popups so these links work, but does not allow popup sandbox escape or top-level
+navigation. Linked tabs inherit the sandbox restrictions; target-site forms
+and privileged browser features may therefore remain unavailable there.
+Citation and other fragment-only links are resolved against the preview URL
+and stay in the frame, rather than following the upstream wiki base URL.

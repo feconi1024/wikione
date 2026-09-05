@@ -119,6 +119,14 @@ export function createPreviewDocument(input: PreviewDocumentInput): string {
                     window.mw.loader.load(${moduleJson});
                 }
                 for (const link of document.querySelectorAll('a[href]')) {
+                    const href = link.getAttribute('href');
+                    if (href && href.startsWith('#')) {
+                        // The wiki <base> would resolve a bare fragment on the
+                        // upstream site. Citations belong to this preview.
+                        link.href = window.location.href.split('#')[0] + href;
+                        link.target = '_self';
+                        continue;
+                    }
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
                 }

@@ -972,7 +972,7 @@ function routeFromPath(path: string): AppRoute {
                         v-if="previewUrl"
                         :src="previewUrl"
                         :title="`Compiled preview of ${title || 'untitled page'}`"
-                        sandbox="allow-scripts allow-same-origin"
+                        sandbox="allow-scripts allow-same-origin allow-popups"
                         referrerpolicy="no-referrer"
                     ></iframe>
                     <div v-else class="preview-empty">

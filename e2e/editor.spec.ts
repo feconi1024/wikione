@@ -6,6 +6,8 @@ import type {
     SessionStatus,
 } from '@wikione/contracts';
 
+import { createPreviewDocument } from '../packages/preview-document/src/preview-document.js';
+
 const apiBaseUrl = 'http://127.0.0.1:3000';
 const previewBaseUrl = 'http://127.0.0.1:4174';
 const generatedAt = '2026-07-19T00:00:00.000Z';
@@ -971,6 +973,93 @@ test('manual conflict resolution and every watchlist choice remain usable', asyn
         'Both edits combined',
     );
     expect(state.publishRequests).toBe(0);
+});
+
+test('rendered links open a separate tab without exposing the editor window', async ({
+    page,
+    context,
+}) => {
+    await mockServices(page);
+    await page.route(`${previewBaseUrl}/previews/*`, (route) =>
+        route.fulfill({
+            contentType: 'text/html',
+            body: '<a href="http://127.0.0.1:4174/wiki-target" target="_blank" rel="noopener noreferrer">Example article</a>',
+        }),
+    );
+    await context.route(`${previewBaseUrl}/wiki-target`, (route) =>
+        route.fulfill({
+            contentType: 'text/html',
+            body: '<h1>Example article</h1>',
+        }),
+    );
+    await page.goto('/');
+    const popupPromise = context.waitForEvent('page');
+    await page
+        .frameLocator('.preview-surface iframe')
+        .getByRole('link', { name: 'Example article' })
+        .click();
+    const popup = await popupPromise;
+    await expect(
+        popup.getByRole('heading', { name: 'Example article' }),
+    ).toBeVisible();
+    expect(await popup.evaluate(() => window.opener === null)).toBe(true);
+    await expect(page).toHaveURL('/');
+    await expect(page.locator('.cm-content')).toContainText(
+        'Welcome to WikiOne',
+    );
+    await popup.close();
+});
+
+test('citation and backlink fragments scroll within the actual generated preview document', async ({
+    page,
+    context,
+}) => {
+    await mockServices(page);
+    // Keep this regression offline while exercising the real document generator.
+    await page.route('https://en.wikipedia.org/**', (route) =>
+        route.fulfill({ body: '', contentType: 'text/javascript' }),
+    );
+    await page.route(`${previewBaseUrl}/previews/*`, (route) =>
+        route.fulfill({
+            contentType: 'text/html',
+            body: createPreviewDocument({
+                wikiBaseUrl: 'https://en.wikipedia.org',
+                siteName: 'Wikipedia',
+                languageCode: 'en',
+                direction: 'ltr',
+                parsed: {
+                    title: 'Sandbox',
+                    displayTitle: 'Sandbox',
+                    text: '<p id="cite_ref-1"><a href="#cite_note-1">Citation 1</a></p><div style="height:900px"></div><p id="cite_note-1">Example citation <a href="#cite_ref-1">Back to text</a></p>',
+                    headHtml: '',
+                    subtitle: '',
+                    indicators: [],
+                    categoriesHtml: '',
+                    modules: [],
+                    moduleStyles: [],
+                    javascriptConfig: {},
+                    warnings: [],
+                },
+            }),
+        }),
+    );
+    await page.goto('/');
+    const frame = page.frameLocator('.preview-surface iframe');
+    await frame.getByRole('link', { name: 'Citation 1', exact: true }).click();
+    await expect(
+        frame.getByRole('link', { name: 'Back to text' }),
+    ).toBeInViewport();
+    await frame.getByRole('link', { name: 'Back to text' }).click();
+    await expect(
+        frame.getByRole('link', { name: 'Citation 1', exact: true }),
+    ).toBeInViewport();
+    expect(context.pages()).toHaveLength(1);
+    expect(
+        page
+            .frames()
+            .find((item) => item.url().includes('/previews/'))
+            ?.url(),
+    ).toContain('#cite_ref-1');
 });
 
 async function mockServices(page: Page): Promise<MockState> {

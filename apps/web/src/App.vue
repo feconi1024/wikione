@@ -27,6 +27,7 @@ import {
     watch,
 } from 'vue';
 
+import { useAppearance } from './appearance.js';
 import { WikiOneApiClient } from './api.js';
 import AccountPage from './components/AccountPage.vue';
 import AuthDialog from './components/AuthDialog.vue';
@@ -68,6 +69,7 @@ Try a '''bold statement''', an [[Earth|internal link]], or a reference.<ref>Exam
 
 <references />`;
 
+const { preference: appearance } = useAppearance();
 const api = new WikiOneApiClient();
 const draftStore = new IndexedDbDraftStore();
 const editor = ref<WikitextEditorHandle>();
@@ -580,56 +582,41 @@ function routeFromPath(path: string): AppRoute {
                 <span class="brand-mark" aria-hidden="true">W</span>
                 <span class="brand-copy">
                     <strong>WikiOne</strong>
-                    <small>MediaWiki workspace</small>
+                    <small>A better space to edit</small>
                 </span>
             </a>
 
-            <div v-if="route === 'editor'" class="document-controls">
-                <label class="field field--wiki">
-                    <span>Wiki</span>
-                    <select v-model="wikiId" aria-label="Target wiki">
-                        <option
-                            v-for="wiki in wikis"
-                            :key="wiki.id"
-                            :value="wiki.id"
-                        >
-                            {{ wiki.displayName }}
-                        </option>
-                    </select>
-                </label>
-                <label class="field field--title">
-                    <span>Page</span>
-                    <input
-                        v-model="title"
-                        type="text"
-                        maxlength="512"
-                        autocomplete="off"
-                        spellcheck="false"
-                        placeholder="Article title"
-                        @keydown.enter="loadPage"
-                    />
-                </label>
-                <button
-                    class="button button--primary"
-                    type="button"
-                    :disabled="loadingPage || !title.trim()"
-                    @click="loadPage"
+            <nav class="primary-nav" aria-label="Main navigation">
+                <a
+                    href="/"
+                    :aria-current="route === 'editor' ? 'page' : undefined"
+                    @click.prevent="navigate('/')"
+                    >Editor</a
                 >
-                    {{ loadingPage ? 'Loading…' : 'Load page' }}
-                </button>
-            </div>
+                <a
+                    href="/connected-apps"
+                    :aria-current="
+                        route === 'connected-apps' ? 'page' : undefined
+                    "
+                    @click.prevent="navigate('/connected-apps')"
+                    >Connections</a
+                >
+                <a
+                    href="/privacy"
+                    :aria-current="route === 'privacy' ? 'page' : undefined"
+                    @click.prevent="navigate('/privacy')"
+                    >Privacy</a
+                >
+            </nav>
 
             <div class="topbar-actions">
-                <button
-                    v-if="route === 'editor'"
-                    ref="reviewButton"
-                    class="button"
-                    type="button"
-                    :disabled="!title.trim()"
-                    @click="reviewOpen = true"
-                >
-                    Review changes
-                </button>
+                <label class="appearance-control">
+                    <select v-model="appearance" aria-label="Appearance">
+                        <option value="system">System theme</option>
+                        <option value="light">Light theme</option>
+                        <option value="dark">Dark theme</option>
+                    </select>
+                </label>
                 <button
                     v-if="!session.authenticated"
                     class="button button--primary"
@@ -704,6 +691,64 @@ function routeFromPath(path: string): AppRoute {
             </div>
         </header>
 
+        <section
+            v-if="route === 'editor'"
+            class="document-bar"
+            aria-label="Page controls"
+        >
+            <div v-if="route === 'editor'" class="document-controls">
+                <label class="field field--wiki">
+                    <span>Wiki</span>
+                    <select v-model="wikiId" aria-label="Target wiki">
+                        <option
+                            v-for="wiki in wikis"
+                            :key="wiki.id"
+                            :value="wiki.id"
+                        >
+                            {{ wiki.displayName }}
+                        </option>
+                    </select>
+                </label>
+                <label class="field field--title">
+                    <span>Page</span>
+                    <input
+                        v-model="title"
+                        aria-label="Page title"
+                        type="text"
+                        maxlength="512"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="Article title"
+                        @keydown.enter="loadPage"
+                    />
+                </label>
+                <button
+                    class="button"
+                    type="button"
+                    :disabled="loadingPage || !title.trim()"
+                    @click="loadPage"
+                >
+                    {{ loadingPage ? 'Loading…' : 'Load page' }}
+                </button>
+            </div>
+
+            <div class="document-actions">
+                <span class="document-hint"
+                    >Your space to write, refine, and contribute.</span
+                >
+                <button
+                    v-if="route === 'editor'"
+                    ref="reviewButton"
+                    class="button button--primary"
+                    type="button"
+                    :disabled="!title.trim()"
+                    @click="reviewOpen = true"
+                >
+                    Review changes
+                </button>
+            </div>
+        </section>
+
         <div
             v-if="route === 'editor' && (appMessage || pageMessage)"
             class="notice-strip"
@@ -751,7 +796,7 @@ function routeFromPath(path: string): AppRoute {
             <section class="pane source-pane" aria-labelledby="source-title">
                 <div class="pane-header">
                     <div>
-                        <span class="eyebrow">Source</span>
+                        <span class="eyebrow">Wikitext source</span>
                         <h1 id="source-title">
                             {{ title || 'Untitled page' }}
                         </h1>
@@ -842,7 +887,7 @@ function routeFromPath(path: string): AppRoute {
             <section class="pane preview-pane" aria-labelledby="preview-title">
                 <div class="pane-header">
                     <div>
-                        <span class="eyebrow">Compiled page</span>
+                        <span class="eyebrow">Live preview</span>
                         <h2 id="preview-title">
                             {{ selectedWiki.displayName }} preview
                         </h2>
@@ -894,12 +939,22 @@ function routeFromPath(path: string): AppRoute {
                         referrerpolicy="no-referrer"
                     ></iframe>
                     <div v-else class="preview-empty">
-                        <span class="preview-glyph" aria-hidden="true">W</span>
+                        <span class="preview-glyph" aria-hidden="true">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            >
+                                <path d="M7 3h7l4 4v14H6V3h1Z" />
+                                <path d="M14 3v5h4M9 12h6M9 16h6" />
+                            </svg>
+                        </span>
                         <h3>Your compiled page will appear here</h3>
                         <p>
-                            Start the API and preview services, then edit the
-                            source. WikiOne keeps your last successful preview
-                            visible if a later compilation fails.
+                            Write or load a page to see your changes here. If a
+                            preview cannot be refreshed, your last successful
+                            version stays in view.
                         </p>
                         <button type="button" @click="retryPreview">
                             Try compiling

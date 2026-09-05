@@ -5,6 +5,22 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Interface redesign — 2026-09-05
+
+- Replaced the gradient header, paper textures, and raised panels with flat
+  white/charcoal surfaces, fine borders, and a shared blue accent palette.
+- Separated global navigation from page loading and review controls, added
+  direct editor/connections/privacy navigation, and refined mobile reflow.
+- Added System, Light, and Dark appearance preferences with local persistence
+  and live operating-system theme updates; storage restrictions do not prevent
+  theme selection.
+- Coordinated editor syntax, selection, autocomplete, account pages, dialogs,
+  diffs, warnings, and status indicators across both themes. Target-rendered
+  wiki content retains its original site styling in the isolated preview.
+- Added appearance persistence, storage-failure, and dark-mode accessibility
+  browser coverage, refreshed light visual baselines, and added dark editor,
+  authentication, and review baselines for desktop and mobile.
+
 ### Added
 
 - A loopback-only `pnpm test:local` acceptance gate for the real Compose stack,

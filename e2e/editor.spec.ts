@@ -464,6 +464,87 @@ test('@a11y preserves 400% equivalent reflow and visible focus in forced colors'
     await expectNoSeriousAccessibilityViolations(page, true);
 });
 
+test('@a11y follows system appearance and preserves an explicit theme across reloads', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+    await expect(compiledBody(page)).toContainText('Welcome to WikiOne');
+    const root = page.locator('html');
+    const appearance = page.getByRole('combobox', { name: 'Appearance' });
+    await expect(root).toHaveAttribute('data-theme', 'dark');
+    await expectNoSeriousAccessibilityViolations(page, true);
+
+    await appearance.selectOption('light');
+    await page.reload();
+    await expect(root).toHaveAttribute('data-theme', 'light');
+    await expect(appearance).toHaveValue('light');
+    await appearance.selectOption('system');
+    await expect(root).toHaveAttribute('data-theme', 'dark');
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(root).toHaveAttribute('data-theme', 'light');
+
+    await appearance.selectOption('dark');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expectNoSeriousAccessibilityViolations(page, true);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Review changes' }).click();
+    await expectNoSeriousAccessibilityViolations(page, true);
+    await page.keyboard.press('Escape');
+    for (const route of ['/account', '/connected-apps', '/privacy']) {
+        await page.goto(route);
+        await expect(root).toHaveAttribute('data-theme', 'dark');
+        await expectNoDocumentOverflow(page);
+        await expectNoSeriousAccessibilityViolations(page);
+    }
+});
+
+test('appearance remains usable when browser storage is unavailable', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.addInitScript(() => {
+        Object.defineProperty(window, 'localStorage', {
+            get() {
+                throw new DOMException('Storage unavailable', 'SecurityError');
+            },
+        });
+    });
+    await page.goto('/');
+    await page
+        .getByRole('combobox', { name: 'Appearance' })
+        .selectOption('dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('.cm-content')).toContainText(
+        'Welcome to WikiOne',
+    );
+});
+
+test('@visual captures dark editor and dialog surfaces', async ({ page }) => {
+    await mockServices(page);
+    await page.goto('/');
+    await expect(compiledBody(page)).toContainText('Welcome to WikiOne');
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    await page
+        .getByRole('combobox', { name: 'Appearance' })
+        .selectOption('dark');
+    await expect(page).toHaveScreenshot('editor-dark.png', {
+        maxDiffPixelRatio: 0.015,
+    });
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page).toHaveScreenshot('authentication-dark.png', {
+        maxDiffPixelRatio: 0.015,
+    });
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Review changes' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page).toHaveScreenshot('review-dark.png', {
+        maxDiffPixelRatio: 0.015,
+    });
+});
+
 test('@visual captures deterministic public-beta surfaces', async ({
     isMobile,
     page,

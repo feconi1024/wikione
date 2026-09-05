@@ -9,6 +9,9 @@ resolution for an English Wikipedia MVP.
 
 - Side-by-side source and target-rendered page panes, continuously recompiled
   after edits; narrow screens use accessible Source/Preview tabs.
+- Flat white and charcoal themes with a coordinated blue accent, system-theme
+  detection, and a saved appearance preference. See the
+  [interface design guide](docs/interface-design.md).
 - Independent wikitext highlighting, diagnostics, outline, snippets,
   autocomplete, and toolbar commands built on permissively licensed CodeMirror
   core packages.

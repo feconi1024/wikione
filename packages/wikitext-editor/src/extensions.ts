@@ -180,20 +180,31 @@ const parser: StreamParser<WikitextStreamState> = {
 };
 
 const accessibleHighlightStyle = HighlightStyle.define([
-    { tag: tags.comment, color: '#59656b', fontStyle: 'italic' },
-    { tag: tags.heading, color: '#633f00', fontWeight: '700' },
-    { tag: tags.processingInstruction, color: '#754600' },
+    {
+        tag: tags.comment,
+        color: 'var(--ink-muted, #59656b)',
+        fontStyle: 'italic',
+    },
+    {
+        tag: tags.heading,
+        color: 'var(--syntax-heading, #244cb5)',
+        fontWeight: '700',
+    },
+    {
+        tag: tags.processingInstruction,
+        color: 'var(--syntax-heading, #244cb5)',
+    },
     {
         tag: [tags.link, tags.url],
-        color: '#005c91',
+        color: 'var(--syntax-link, #315ed1)',
         textDecoration: 'underline',
     },
-    { tag: tags.bool, color: '#763b73' },
-    { tag: tags.string, color: '#006c45' },
-    { tag: tags.variableName, color: '#704000' },
-    { tag: tags.separator, color: '#566169' },
-    { tag: tags.tagName, color: '#007149' },
-    { tag: tags.typeName, color: '#5e3b91' },
+    { tag: tags.bool, color: 'var(--syntax-template, #7545a0)' },
+    { tag: tags.string, color: 'var(--syntax-string, #22734e)' },
+    { tag: tags.variableName, color: 'var(--syntax-variable, #805517)' },
+    { tag: tags.separator, color: 'var(--ink-muted, #606c7c)' },
+    { tag: tags.tagName, color: 'var(--syntax-string, #22734e)' },
+    { tag: tags.typeName, color: 'var(--syntax-template, #7545a0)' },
 ]);
 
 export const wikitextLanguage = StreamLanguage.define(parser);
@@ -300,7 +311,7 @@ const editorTheme = EditorView.theme({
     '&': {
         height: '100%',
         color: 'var(--ink-strong, #1b2430)',
-        backgroundColor: 'var(--editor-paper, #fffdf8)',
+        backgroundColor: 'var(--editor-paper, #ffffff)',
         fontSize: '14px',
     },
     '.cm-scroller': {
@@ -309,21 +320,32 @@ const editorTheme = EditorView.theme({
         lineHeight: '1.65',
     },
     '.cm-content': {
-        caretColor: 'var(--accent, #0c6b58)',
+        caretColor: 'var(--accent, #315ed1)',
         padding: '16px 0 40px',
     },
     '.cm-gutters': {
-        backgroundColor: 'var(--editor-gutter, #f3f0e8)',
-        borderRight: '1px solid var(--border, #d8d4ca)',
+        backgroundColor: 'var(--editor-gutter, #f6f7f9)',
+        borderRight: '1px solid var(--border, #e2e6ec)',
         color: 'var(--ink-muted, #68717d)',
     },
     '.cm-activeLine, .cm-activeLineGutter': {
-        backgroundColor:
-            'color-mix(in srgb, var(--accent, #0c6b58) 8%, transparent)',
+        backgroundColor: 'var(--active-line, #f1f4fb)',
     },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-        backgroundColor:
-            'color-mix(in srgb, var(--accent, #0c6b58) 22%, transparent)',
+        backgroundColor: 'var(--selection, #dce6ff)',
+    },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--accent, #315ed1)' },
+    '.cm-tooltip, .cm-panels': {
+        color: 'var(--ink-strong, #202733)',
+        backgroundColor: 'var(--surface-raised, #ffffff)',
+        border: '1px solid var(--border-strong, #b8c1cf)',
+    },
+    '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+        color: 'var(--ink-strong, #202733)',
+        backgroundColor: 'var(--selection, #dce6ff)',
+    },
+    '.cm-searchMatch, .cm-selectionMatch, .cm-matchingBracket': {
+        backgroundColor: 'var(--selection, #dce6ff)',
     },
     '&.cm-focused': { outline: 'none' },
 });

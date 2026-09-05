@@ -7,7 +7,7 @@ top-level document, but cannot repair inaccessible upstream markup.
 
 ## Automated release gate
 
-`pnpm test:a11y` runs 16 axe-core 4.12 checks on desktop and mobile Chromium
+`pnpm test:a11y` runs axe-core checks on desktop and mobile Chromium
 with reduced motion enabled. The public-beta gate fails on every serious or
 critical finding. It covers:
 
@@ -21,10 +21,12 @@ critical finding. It covers:
 - 320 CSS px reflow (a deterministic 1280 px-at-400%-zoom equivalent), Windows
   forced-colors system colors, and a visible focused control in that mode;
 - the cookie-free compiled preview loaded as a top-level document.
+- system appearance changes, explicit theme persistence, and dark-theme
+  editor, authentication, review, and public settings surfaces.
 
 The wider `pnpm test:browser` matrix repeats the flows on Chromium, Firefox,
-WebKit, mobile Chromium, and mobile WebKit. `pnpm test:visual` verifies 16
-reviewed desktop/mobile snapshots with animation disabled and fixed locale,
+WebKit, mobile Chromium, and mobile WebKit. `pnpm test:visual` verifies 22
+desktop/mobile snapshots across light and dark themes with animation disabled and fixed locale,
 timezone, network data, and timestamps. Exact evidence is recorded in
 [the 2026-07-19 browser report](evidence/milestone-3-browser-2026-07-19.md).
 

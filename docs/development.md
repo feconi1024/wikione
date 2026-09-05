@@ -52,7 +52,7 @@ API and preview use separate Redis key prefixes. Browser drafts remain local.
 ## Containers
 
 ```sh
-docker compose up --build --wait
+docker compose up -d --build --wait
 pnpm test:local
 ```
 
@@ -62,6 +62,42 @@ PostgreSQL/Redis and service health checks, persists PostgreSQL in the named
 available on port 5173. Every published development port is bound to loopback;
 the checked-in fixed credentials must never be used on a public interface. CI
 builds every target and validates Compose syntax.
+
+## Preview troubleshooting
+
+A working editor does not prove the compilation services are running.
+`pnpm dev:web` starts only the frontend, and the normal browser tests mock the
+API and preview responses. Real compilation requires all five services:
+frontend, API, preview server, Redis, and PostgreSQL.
+
+Check the local stack with `docker compose ps -a`. If the API or preview
+container is stopped, restore the complete stack with:
+
+```sh
+docker compose up -d --build --wait
+```
+
+This builds the current checkout and leaves the services running in detached
+mode. Avoid running Vite on port 5173 at the same time as the web container.
+Reload the editor at `http://127.0.0.1:5173`, or select **Try compiling** if it
+was already open. Source drafts remain in the browser.
+
+Both `http://127.0.0.1:3000/readyz` and
+`http://127.0.0.1:4174/readyz` should return HTTP 200. A refused connection
+indicates a stopped service or incorrect port; HTTP 503 indicates that a
+service cannot reach a required dependency. Inspect startup errors with
+`docker compose logs --tail 50 api preview`. If both services are ready but
+compilation fails, inspect the preview request's response and the API logs;
+the API must be able to reach Wikipedia's parser over HTTPS.
+
+On 2026-09-05, the reported blank preview was traced to stopped API and preview
+containers while PostgreSQL and Redis were running. Starting the services and
+rebuilding the frontend restored compilation without a parser or UI code
+change. A browser check using real API responses verified that editing
+wikitext produced a visible heading, bold text, and a two-item list in the
+isolated Wikipedia-rendered preview.
+
+## Real-stack acceptance checks
 
 `pnpm test:local` is the real-stack acceptance gate. It verifies web CSP and
 runtime configuration, API CORS/OpenAPI/readiness, PostgreSQL-backed account

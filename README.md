@@ -65,7 +65,7 @@ Open `http://127.0.0.1:5173`. The API and isolated preview service listen on
 ports 3000 and 4174. Alternatively, build and start the complete stack:
 
 ```sh
-docker compose up --build --wait
+docker compose up -d --build --wait
 pnpm test:local:milestone3
 ```
 
@@ -75,6 +75,10 @@ production-image acceptance flow, creates and deletes a temporary first-party
 account, performs one anonymous live Wikipedia compilation, and proves an
 isolated PostgreSQL backup/restore. It never submits an edit or changes the
 running account database.
+
+The frontend alone cannot compile wikitext: both the API and isolated preview
+service must also be running. For a blank preview, see
+[preview troubleshooting](docs/development.md#preview-troubleshooting).
 
 Run repository and browser gates with:
 

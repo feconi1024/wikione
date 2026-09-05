@@ -5,6 +5,14 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Local preview recovery — 2026-09-05
+
+- Diagnosed the unavailable live preview as stopped local API and preview
+  services; restored the complete Compose stack and verified real browser
+  editing through Wikipedia's parser into the visible isolated preview.
+- Documented frontend-only startup limitations, service readiness checks, and
+  detached full-stack startup to prevent confusion with mocked browser tests.
+
 ### Interface redesign — 2026-09-05
 
 - Replaced the gradient header, paper textures, and raised panels with flat

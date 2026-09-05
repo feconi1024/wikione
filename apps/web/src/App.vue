@@ -77,6 +77,10 @@ const workspace = ref<HTMLElement>();
 const wikis = ref<WikiDescriptor[]>([fallbackWiki]);
 const wikiId = ref(fallbackWiki.id);
 const title = ref('Sandbox');
+// Loading controls describe a pending destination, not the open document.
+// Typing a page name must never retarget the active draft's autosave key.
+const requestedTitle = ref(title.value);
+const requestedWikiId = ref(wikiId.value);
 const source = ref(starterSource);
 const baseSource = ref<string>('');
 const baseRevision = ref<BaseRevision>();
@@ -380,10 +384,10 @@ function scheduleDraftSave(): void {
     }, 800);
 }
 
-async function saveDraft(): Promise<void> {
+async function saveDraft(): Promise<boolean> {
     const cleanTitle = title.value.trim();
     if (!cleanTitle) {
-        return;
+        return false;
     }
     try {
         const updatedAt = new Date().toISOString();
@@ -394,15 +398,25 @@ async function saveDraft(): Promise<void> {
             title: cleanTitle,
             source: source.value,
             baseSource: baseSource.value,
-            ...(baseRevision.value ? { baseRevision: baseRevision.value } : {}),
+            // IndexedDB cannot structured-clone Vue's reactive revision proxy.
+            ...(baseRevision.value
+                ? {
+                      baseRevision: {
+                          id: baseRevision.value.id,
+                          timestamp: baseRevision.value.timestamp,
+                      },
+                  }
+                : {}),
             updatedAt,
         });
         draftStatus.value = 'saved';
         draftMessage.value = `Saved in this browser at ${formatTime(updatedAt)}.`;
+        return true;
     } catch {
         draftStatus.value = 'error';
         draftMessage.value =
             'Local save failed. Browser storage may be full or unavailable.';
+        return false;
     }
 }
 
@@ -423,7 +437,8 @@ async function discardDraft(): Promise<void> {
 }
 
 async function loadPage(): Promise<void> {
-    const cleanTitle = title.value.trim();
+    const cleanTitle = requestedTitle.value.trim();
+    const destinationWikiId = requestedWikiId.value;
     if (!cleanTitle || loadingPage.value) {
         return;
     }
@@ -431,8 +446,22 @@ async function loadPage(): Promise<void> {
     pageMessage.value = '';
     remotePage.value = undefined;
     try {
-        const page = await api.loadPage(wikiId.value, cleanTitle);
-        const draft = await draftStore.get(wikiId.value, page.title);
+        const page = await api.loadPage(destinationWikiId, cleanTitle);
+        // Preserve edits made before or during a slow page request before
+        // replacing the active document and its revision metadata.
+        if (draftTimer !== undefined) {
+            clearTimeout(draftTimer);
+            draftTimer = undefined;
+            if (!(await saveDraft())) {
+                throw new Error(
+                    'The current draft could not be saved. Copy it before loading another page.',
+                );
+            }
+        }
+        const draft = await draftStore.get(destinationWikiId, page.title);
+        wikiId.value = destinationWikiId;
+        title.value = page.title;
+        requestedTitle.value = page.title;
         baseRevision.value = draft?.baseRevision ?? page.baseRevision;
         baseSource.value = draft?.baseSource ?? page.source;
         if (draft && draft.source !== page.source) {
@@ -699,7 +728,11 @@ function routeFromPath(path: string): AppRoute {
             <div v-if="route === 'editor'" class="document-controls">
                 <label class="field field--wiki">
                     <span>Wiki</span>
-                    <select v-model="wikiId" aria-label="Target wiki">
+                    <select
+                        v-model="requestedWikiId"
+                        :disabled="loadingPage"
+                        aria-label="Target wiki"
+                    >
                         <option
                             v-for="wiki in wikis"
                             :key="wiki.id"
@@ -712,7 +745,8 @@ function routeFromPath(path: string): AppRoute {
                 <label class="field field--title">
                     <span>Page</span>
                     <input
-                        v-model="title"
+                        v-model="requestedTitle"
+                        :disabled="loadingPage"
                         aria-label="Page title"
                         type="text"
                         maxlength="512"
@@ -725,7 +759,7 @@ function routeFromPath(path: string): AppRoute {
                 <button
                     class="button"
                     type="button"
-                    :disabled="loadingPage || !title.trim()"
+                    :disabled="loadingPage || !requestedTitle.trim()"
                     @click="loadPage"
                 >
                     {{ loadingPage ? 'Loading…' : 'Load page' }}

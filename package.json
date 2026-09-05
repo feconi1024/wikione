@@ -31,6 +31,7 @@
         "test:browser": "playwright test --config e2e/playwright.config.ts --grep-invert @visual",
         "test:compat": "vitest run packages/mediawiki apps/render-spike",
         "test:e2e": "playwright test --config e2e/playwright.config.ts --grep-invert @visual --project=chromium-desktop",
+        "test:edge": "playwright test --config e2e/edge.config.ts",
         "test:load": "tsx scripts/load-test.ts && pnpm test:load:password",
         "test:load:password": "tsx scripts/benchmark-password.ts",
         "test:live": "pnpm --filter @wikione/render-spike... build && pnpm --filter @wikione/render-spike validate:live",

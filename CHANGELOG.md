@@ -5,6 +5,18 @@ All notable changes to WikiOne are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Edge audit: draft safety — 2026-09-06
+
+- Fixed IndexedDB autosave failing after a wiki page load because Vue's
+  reactive base-revision metadata could not be cloned for storage.
+- Separated page-loading inputs from the active document identity so typing
+  a destination cannot overwrite that page's existing draft. Pending edits
+  are saved before switching documents, and canonical titles are retained
+  when restoring drafts.
+- Added an installed-Edge test configuration and browser coverage for all
+  toolbar commands, undo/redo, outline/search/snippets, pointer resizing,
+  navigation, request coalescing/retry, and draft restore/replacement/discard.
+
 ### Local preview recovery — 2026-09-05
 
 - Diagnosed the unavailable live preview as stopped local API and preview

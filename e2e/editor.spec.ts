@@ -662,6 +662,169 @@ test('@visual captures deterministic public-beta surfaces', async ({
     });
 });
 
+test('all toolbar commands preserve selection and support undo and redo', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.goto('/');
+    const editor = page.locator('.cm-content');
+    for (const [name, expected] of [
+        ['Bold selected text', "'''sample'''"],
+        ['Italicize selected text', "''sample''"],
+        ['Insert section heading', '== sample =='],
+        ['Insert internal wiki link', '[[sample]]'],
+        ['Insert template', '{{sample}}'],
+        ['Insert reference', '<ref>sample</ref>'],
+        ['Insert bulleted list', '* sample'],
+        ['Insert numbered list', '# sample'],
+        ['Insert wiki table', '{| class="wikitable"'],
+    ] as const) {
+        await replaceEditorSource(page, editor, 'sample');
+        await selectAllEditorText(editor);
+        await page.getByRole('button', { name, exact: true }).click();
+        await expect(editor).toContainText(expected!);
+        await expect(editor).toBeFocused();
+        await editor.press('Control+z');
+        await expect(editor).toHaveText('sample');
+        await editor.press('Control+y');
+        await expect(editor).toContainText(expected!);
+    }
+});
+
+test('outline, search, autocomplete and pointer splitter remain interactive', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockServices(page);
+    await page.goto('/');
+    const editor = page.locator('.cm-content');
+    await replaceEditorSource(
+        page,
+        editor,
+        '== First ==\n\nAlpha\n\n== Second ==\n\nBeta',
+    );
+    await page.getByRole('button', { name: 'Second', exact: true }).click();
+    await expect(page.locator('.pane-statusbar').first()).toContainText(
+        'Ln 5, Col 1',
+    );
+    await editor.press('Control+f');
+    await page.getByRole('textbox', { name: 'Find', exact: true }).fill('Beta');
+    await page.getByRole('button', { name: 'next', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeFocused();
+    await editor.press('Control+End');
+    await editor.press('Enter');
+    await editor.press('Control+Space');
+    await page.getByRole('option', { name: /Internal link/u }).click();
+    await expect(editor).toContainText('[[Page title|label]]');
+    const separator = page.getByRole('separator');
+    const box = await separator.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + 80);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + 100, box!.y + 80, { steps: 5 });
+    await page.mouse.up();
+    await expect(separator).not.toHaveAttribute('aria-valuenow', '50');
+});
+
+test('rapid typing compiles once after the burst and retry recovers a failed preview', async ({
+    page,
+}) => {
+    const state = await mockServices(page);
+    await page.goto('/');
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    const before = state.requests.length;
+    const editor = page.locator('.cm-content');
+    await editor.click();
+    await editor.press('Control+End');
+    await page.keyboard.type(' burst of twenty keys', { delay: 20 });
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+    await expect.poll(() => state.requests.length).toBe(before + 1);
+    await page.route(`${apiBaseUrl}/v1/previews`, (route) =>
+        route.abort('failed'),
+    );
+    await page.getByRole('button', { name: 'Compile preview again' }).click();
+    await expect(page.locator('.status-pill')).toHaveText(
+        'Preview needs attention',
+    );
+    await page.unroute(`${apiBaseUrl}/v1/previews`);
+    // Restore the deterministic service routes after removing the failure override.
+    await mockServices(page);
+    await page.getByRole('button', { name: 'Compile preview again' }).click();
+    await expect(page.locator('.status-pill')).toHaveText('Preview current');
+});
+
+test('navigation links and browser history preserve the open draft', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.goto('/');
+    await replaceEditorSource(
+        page,
+        page.locator('.cm-content'),
+        'Navigation draft',
+    );
+    await page.getByRole('link', { name: 'Connections', exact: true }).click();
+    await expect(page).toHaveURL('/connected-apps');
+    await page.getByRole('button', { name: 'Read the privacy notice' }).click();
+    await expect(page).toHaveURL('/privacy');
+    await page.getByRole('button', { name: 'Review connected apps' }).click();
+    await expect(page).toHaveURL('/connected-apps');
+    await page.goBack();
+    await expect(page).toHaveURL('/privacy');
+    await page.getByRole('link', { name: 'WikiOne editor home' }).click();
+    await expect(page.locator('.cm-content')).toHaveText('Navigation draft');
+    await page.getByRole('link', { name: 'Privacy', exact: true }).click();
+    await page.getByRole('link', { name: 'Editor', exact: true }).click();
+    await expect(page.locator('.cm-content')).toHaveText('Navigation draft');
+});
+
+test('entering a page to load cannot overwrite its existing local draft', async ({
+    page,
+}) => {
+    await mockServices(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Load page' }).click();
+    await replaceEditorSource(
+        page,
+        page.locator('.cm-content'),
+        'Important Earth draft',
+    );
+    await expect(
+        page.locator('.visually-hidden[aria-live="polite"]'),
+    ).toContainText('Saved locally');
+    // Return to the initial Sandbox document, then type the existing page name.
+    await page.reload();
+    await expect(page.locator('.cm-content')).toContainText(
+        'Welcome to WikiOne',
+    );
+    await page
+        .getByRole('textbox', { name: 'Page title', exact: true })
+        .fill('Earth');
+    // Cross the autosave interval: simply entering a search target must not save
+    // the Sandbox source over an existing Earth draft.
+    await page.waitForTimeout(1100);
+    await page.getByRole('button', { name: 'Load page' }).click();
+    await expect(page.locator('.cm-content')).toHaveText(
+        'Important Earth draft',
+    );
+    await page.getByRole('button', { name: 'Keep local draft' }).click();
+    await expect(
+        page.getByText('Keeping the local browser draft.'),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Load page' }).click();
+    await page.getByRole('button', { name: 'Use wiki version' }).click();
+    await expect(page.locator('.cm-content')).toContainText(
+        'Remote wiki source',
+    );
+    await page.getByRole('button', { name: 'Discard saved copy' }).click();
+    await expect(page.locator('.privacy-bar')).toContainText(
+        'Saved copy removed',
+    );
+    await expect(page.locator('.cm-content')).toContainText(
+        'Remote wiki source',
+    );
+});
+
 async function mockServices(page: Page): Promise<MockState> {
     const requests: MockPreviewRequest[] = [];
     const previewSources = new Map<string, string>();

@@ -29,6 +29,13 @@ MediaWiki clients and stores; it does not contact Wikimedia or write to a wiki.
 The Playwright suite starts Vite, intercepts the documented HTTP boundaries,
 and verifies the real editor in Chromium.
 
+`pnpm test:edge --headed` runs the deterministic interaction suite in the
+installed Microsoft Edge, in a visible isolated browser profile. It covers
+toolbar commands, search/snippets, resizing, navigation, themes, account and
+review flows, and draft safety. Its API responses are mocked: it does not
+create real accounts or publish wiki edits. Use the real-stack checks below
+to verify service connectivity and Wikipedia parsing separately.
+
 ## Run from source
 
 Start PostgreSQL, Redis, and all three development processes:

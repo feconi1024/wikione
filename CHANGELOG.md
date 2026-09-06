@@ -25,6 +25,9 @@ All notable changes to WikiOne are documented in this file. The format follows
   separate origin, no-opener/no-referrer links, and top-navigation restrictions.
 - Keep citation and backlink fragments inside the generated preview instead
   of opening the upstream wiki's base URL in another tab.
+- Verify all 22 Edge browser checks and four targeted mobile checks; record
+  the live walkthrough and preview timings in the audit evidence. Make new
+  keyboard checks platform-aware and preview-link checks mobile-aware.
 
 ### Local preview recovery — 2026-09-05
 

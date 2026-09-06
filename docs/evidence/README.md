@@ -4,6 +4,9 @@ This directory retains small, reviewable, machine-readable records needed to
 audit a release. Reports must not contain fetched wikitext, rendered HTML,
 credentials, cookies, tokens, personal data, or secret configuration.
 
+- `edge-ui-audit-2026-09-06.md` records the installed-Edge audit, six fixes,
+  browser coverage, live preview timings, and verification limitations.
+
 - `milestone-3-audit-2026-07-31.md` is the superseding Milestone 3 local-product
   audit record. It
   lists every executed gate with its result, the defects the audit found and

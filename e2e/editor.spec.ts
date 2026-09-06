@@ -670,6 +670,7 @@ test('all toolbar commands preserve selection and support undo and redo', async 
     await mockServices(page);
     await page.goto('/');
     const editor = page.locator('.cm-content');
+    const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
     for (const [name, expected] of [
         ['Bold selected text', "'''sample'''"],
         ['Italicize selected text', "''sample''"],
@@ -686,9 +687,9 @@ test('all toolbar commands preserve selection and support undo and redo', async 
         await page.getByRole('button', { name, exact: true }).click();
         await expect(editor).toContainText(expected);
         await expect(editor).toBeFocused();
-        await editor.press('Control+z');
+        await editor.press(mac ? 'Meta+z' : 'Control+z');
         await expect(editor).toHaveText('sample');
-        await editor.press('Control+y');
+        await editor.press(mac ? 'Meta+Shift+z' : 'Control+y');
         await expect(editor).toContainText(expected);
     }
 });
@@ -700,6 +701,7 @@ test('outline, search, autocomplete and pointer splitter remain interactive', as
     await mockServices(page);
     await page.goto('/');
     const editor = page.locator('.cm-content');
+    const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
     await replaceEditorSource(
         page,
         editor,
@@ -709,12 +711,12 @@ test('outline, search, autocomplete and pointer splitter remain interactive', as
     await expect(page.locator('.pane-statusbar').first()).toContainText(
         'Ln 5, Col 1',
     );
-    await editor.press('Control+f');
+    await editor.press(mac ? 'Meta+f' : 'Control+f');
     await page.getByRole('textbox', { name: 'Find', exact: true }).fill('Beta');
     await page.getByRole('button', { name: 'next', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(editor).toBeFocused();
-    await editor.press('Control+End');
+    await editor.press(mac ? 'Meta+ArrowDown' : 'Control+End');
     await editor.press('Enter');
     await editor.press('Control+Space');
     await page.getByRole('option', { name: /Internal link/u }).click();
@@ -978,6 +980,7 @@ test('manual conflict resolution and every watchlist choice remain usable', asyn
 test('rendered links open a separate tab without exposing the editor window', async ({
     page,
     context,
+    isMobile,
 }) => {
     await mockServices(page);
     await page.route(`${previewBaseUrl}/previews/*`, (route) =>
@@ -993,6 +996,11 @@ test('rendered links open a separate tab without exposing the editor window', as
         }),
     );
     await page.goto('/');
+    if (isMobile) {
+        await page
+            .getByRole('button', { name: 'Preview', exact: true })
+            .click();
+    }
     const popupPromise = context.waitForEvent('page');
     await page
         .frameLocator('.preview-surface iframe')
@@ -1013,6 +1021,7 @@ test('rendered links open a separate tab without exposing the editor window', as
 test('citation and backlink fragments scroll within the actual generated preview document', async ({
     page,
     context,
+    isMobile,
 }) => {
     await mockServices(page);
     // Keep this regression offline while exercising the real document generator.
@@ -1044,6 +1053,11 @@ test('citation and backlink fragments scroll within the actual generated preview
         }),
     );
     await page.goto('/');
+    if (isMobile) {
+        await page
+            .getByRole('button', { name: 'Preview', exact: true })
+            .click();
+    }
     const frame = page.frameLocator('.preview-surface iframe');
     await frame.getByRole('link', { name: 'Citation 1', exact: true }).click();
     await expect(
